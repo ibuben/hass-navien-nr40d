@@ -6,9 +6,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.typing import ConfigType
 
 from .const import CONF_PORTS, DEFAULT_PORTS, DOMAIN
 from .coordinator import NavienCoordinator
+from .frontend import async_register_frontend
 from .protocol import parse_ports
 
 PLATFORMS = (
@@ -21,7 +23,13 @@ PLATFORMS = (
 )
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    await async_register_frontend(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    await async_register_frontend(hass)
     coordinator = NavienCoordinator(hass, entry)
     try:
         parse_ports(entry.options.get(CONF_PORTS, entry.data.get(CONF_PORTS, DEFAULT_PORTS)))

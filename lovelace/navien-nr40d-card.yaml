@@ -1,0 +1,4 @@
+# Пример карточки. После установки интеграции модуль подключается сам.
+type: custom:navien-nr40d-card
+entity: climate.navien_nr40d
+name: Котёл

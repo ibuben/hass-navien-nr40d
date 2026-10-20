@@ -1,0 +1,517 @@
+const CARD_VERSION = "0.2.0";
+const CARD_TYPE = "navien-nr40d-card";
+
+const STRINGS = {
+  en: {
+    title: "Navien",
+    room: "Room",
+    target: "Target",
+    heat: "Heat",
+    off: "Off",
+    away: "Away",
+    mode: "Heating mode",
+    mode_room: "Room",
+    mode_water: "Water",
+    water: "Heating water",
+    dhw: "DHW",
+    heating: "Heating",
+    idle: "Idle",
+    offline: "Controller is offline",
+    pick: "Select a climate entity",
+    no_error: "No errors",
+    connected: "Online",
+    disconnected: "Offline",
+  },
+  ru: {
+    title: "Navien",
+    room: "Комната",
+    target: "Уставка",
+    heat: "Нагрев",
+    off: "Выкл",
+    away: "Вне дома",
+    mode: "Режим отопления",
+    mode_room: "По комнате",
+    mode_water: "По теплоносителю",
+    water: "Теплоноситель",
+    dhw: "ГВС",
+    heating: "Нагрев",
+    idle: "Ожидание",
+    offline: "Пульт не на связи",
+    pick: "Выберите climate-сущность",
+    no_error: "Ошибок нет",
+    connected: "На связи",
+    disconnected: "Нет связи",
+  },
+};
+
+const STYLE = `
+:host {
+  display: block;
+}
+ha-card {
+  overflow: hidden;
+  padding: 0;
+  background:
+    radial-gradient(1200px 280px at 10% -20%, color-mix(in srgb, var(--navien-accent, #f97316) 18%, transparent), transparent 55%),
+    var(--ha-card-background, var(--card-background-color, #fff));
+}
+.wrap {
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--navien-accent, #f97316) 16%, var(--secondary-background-color, #eee));
+  color: var(--navien-accent, #f97316);
+  flex: 0 0 auto;
+}
+.logo.heating {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.title {
+  font-weight: 650;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.subtitle {
+  color: var(--secondary-text-color);
+  font-size: 0.78rem;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--secondary-background-color, rgba(127,127,127,.12));
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error-color, #ef4444);
+}
+.dot.on { background: var(--success-color, #22c55e); }
+.dot.heat { background: var(--navien-accent, #f97316); }
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 8px;
+}
+.temp {
+  font-size: 3.2rem;
+  line-height: 0.95;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+}
+.temp small {
+  font-size: 1.3rem;
+  margin-left: 2px;
+  color: var(--secondary-text-color);
+}
+.temp-meta {
+  color: var(--secondary-text-color);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+.setpoint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn {
+  appearance: none;
+  border: 0;
+  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  color: var(--primary-text-color);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .4; cursor: default; }
+.target-value {
+  min-width: 3.2rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.seg {
+  display: flex;
+  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  border-radius: 14px;
+  padding: 3px;
+  flex: 1;
+  min-width: 160px;
+}
+.seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--secondary-text-color);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.seg button.active {
+  background: var(--card-background-color, #fff);
+  color: var(--primary-text-color);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.chip {
+  border: 0;
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-weight: 650;
+  cursor: pointer;
+  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  color: var(--primary-text-color);
+}
+.chip.active {
+  background: color-mix(in srgb, var(--navien-accent, #f97316) 18%, var(--secondary-background-color, #eee));
+  color: var(--navien-accent, #f97316);
+}
+.sliders {
+  display: grid;
+  gap: 10px;
+}
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+}
+.slider-row label {
+  font-size: 0.82rem;
+  color: var(--secondary-text-color);
+}
+.slider-row .value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+input[type=range] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--navien-accent, #f97316);
+}
+.banner {
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
+  color: var(--error-color, #ef4444);
+}
+.ok {
+  color: var(--secondary-text-color);
+  background: var(--secondary-background-color, rgba(127,127,127,.08));
+}
+.warning {
+  opacity: .85;
+  text-align: center;
+  padding: 18px 8px;
+  color: var(--secondary-text-color);
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+`;
+
+function lang(hass) {
+  const code = (hass && (hass.locale?.language || hass.language) || "en").toLowerCase();
+  return code.startsWith("ru") ? "ru" : "en";
+}
+
+function t(hass, key) {
+  return STRINGS[lang(hass)][key] || STRINGS.en[key] || key;
+}
+
+function num(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function related(hass, climateId, domain, hints) {
+  if (!hass || !climateId) return null;
+  const deviceId = hass.entities?.[climateId]?.device_id;
+  const candidates = Object.keys(hass.states).filter((id) => id.startsWith(`${domain}.`));
+  if (deviceId) {
+    const sameDevice = candidates.filter((id) => hass.entities?.[id]?.device_id === deviceId);
+    for (const hint of hints) {
+      const hit = sameDevice.find((id) => id.includes(hint) || hass.entities?.[id]?.translation_key === hint);
+      if (hit) return hit;
+    }
+    if (sameDevice.length === 1) return sameDevice[0];
+  }
+  const base = climateId.replace(/^climate\./, "");
+  for (const hint of hints) {
+    const guess = `${domain}.${base}_${hint}`;
+    if (hass.states[guess]) return guess;
+  }
+  return null;
+}
+
+class NavienNr40dCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this._hass = null;
+    this._config = {};
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        {
+          name: "entity",
+          required: true,
+          selector: { entity: { domain: "climate" } },
+        },
+        { name: "name", selector: { text: {} } },
+      ],
+    };
+  }
+
+  static getStubConfig(hass) {
+    const entity =
+      Object.keys(hass.states).find((id) => {
+        const platform = hass.entities?.[id]?.platform;
+        return id.startsWith("climate.") && platform === "navien_nr40d";
+      }) ||
+      Object.keys(hass.states).find((id) => id.startsWith("climate.")) ||
+      "";
+    return { entity };
+  }
+
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  getCardSize() {
+    return 5;
+  }
+
+  _entities() {
+    const climateId = this._config.entity;
+    const hass = this._hass;
+    return {
+      climate: climateId,
+      water: this._config.water_entity || related(hass, climateId, "number", ["water_temp", "water"]),
+      dhw: this._config.dhw_entity || related(hass, climateId, "number", ["dhw_temp", "dhw"]),
+      mode: this._config.mode_entity || related(hass, climateId, "select", ["heating_mode", "mode"]),
+      away: this._config.away_entity || related(hass, climateId, "switch", ["away"]),
+      connected: this._config.connected_entity || related(hass, climateId, "binary_sensor", ["connected"]),
+      error: this._config.error_entity || related(hass, climateId, "sensor", ["error"]),
+    };
+  }
+
+  _call(domain, service, entityId, data = {}) {
+    if (!this._hass || !entityId) return;
+    this._hass.callService(domain, service, { entity_id: entityId, ...data });
+  }
+
+  _render() {
+    const hass = this._hass;
+    const root = this.shadowRoot;
+    if (!root) return;
+    const ids = this._entities();
+    const climate = hass?.states?.[ids.climate];
+    const connected = hass?.states?.[ids.connected];
+    const water = hass?.states?.[ids.water];
+    const dhw = hass?.states?.[ids.dhw];
+    const mode = hass?.states?.[ids.mode];
+    const away = hass?.states?.[ids.away];
+    const error = hass?.states?.[ids.error];
+    const name = this._config.name || climate?.attributes?.friendly_name || t(hass, "title");
+    const online = connected ? connected.state === "on" : climate?.state && climate.state !== "unavailable";
+    const heating = climate?.attributes?.hvac_action === "heating";
+    const current = num(climate?.attributes?.current_temperature);
+    const target = num(climate?.attributes?.temperature);
+    const min = num(climate?.attributes?.min_temp) ?? 10;
+    const max = num(climate?.attributes?.max_temp) ?? 40;
+    const awayOn = away?.state === "on" || climate?.attributes?.preset_mode === "away";
+    const errorText = error && error.state && !["ok", "unknown", "unavailable", "unknown"].includes(error.state)
+      ? error.state
+      : null;
+
+    root.innerHTML = `
+      <style>${STYLE}</style>
+      <ha-card>
+        <div class="wrap">
+          <div class="header">
+            <div class="brand">
+              <div class="logo ${heating ? "heating" : ""}" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 22c4.97 0 8-3.36 8-7.5 0-3.27-2.25-6.18-4.2-8.05C14.17 4.86 13 3.5 13 2c-2.4 2.67-4 5.43-4 8.5 0 1.3.4 2.5 1 3.5-.9-.6-1.5-1.7-1.5-3C6.2 13.4 4 16 4 18.5 4 21.04 6.46 22 12 22z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="title">${this._escape(name)}</div>
+                <div class="subtitle">${heating ? t(hass, "heating") : climate?.state === "heat" ? t(hass, "idle") : t(hass, "off")}</div>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="dot ${online ? (heating ? "heat" : "on") : ""}"></span>
+              ${online ? t(hass, "connected") : t(hass, "disconnected")}
+            </div>
+          </div>
+          ${!ids.climate ? `<div class="warning">${t(hass, "pick")}</div>` : ""}
+          ${ids.climate && !online ? `<div class="warning">${t(hass, "offline")}</div>` : ""}
+          ${climate && online ? `
+            <div class="hero">
+              <div>
+                <div class="temp">${current ?? "–"}<small>°</small></div>
+                <div class="temp-meta">${t(hass, "room")}</div>
+              </div>
+              <div class="setpoint">
+                <button class="btn" data-act="temp-down" ${target <= min ? "disabled" : ""}>−</button>
+                <div>
+                  <div class="target-value">${target ?? "–"}°</div>
+                  <div class="temp-meta">${t(hass, "target")}</div>
+                </div>
+                <button class="btn" data-act="temp-up" ${target >= max ? "disabled" : ""}>+</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="seg">
+                <button data-act="off" class="${climate.state === "off" ? "active" : ""}">${t(hass, "off")}</button>
+                <button data-act="heat" class="${climate.state === "heat" ? "active" : ""}">${t(hass, "heat")}</button>
+              </div>
+              ${away || climate.attributes.preset_mode !== undefined ? `
+                <button class="chip ${awayOn ? "active" : ""}" data-act="away">${t(hass, "away")}</button>
+              ` : ""}
+            </div>
+            ${mode ? `
+              <div class="seg">
+                <button data-act="mode-room" class="${mode.state === "room" ? "active" : ""}">${t(hass, "mode_room")}</button>
+                <button data-act="mode-water" class="${mode.state === "water" ? "active" : ""}">${t(hass, "mode_water")}</button>
+              </div>
+            ` : ""}
+            <div class="sliders">
+              ${water ? this._slider("water", t(hass, "water"), water) : ""}
+              ${dhw ? this._slider("dhw", t(hass, "dhw"), dhw) : ""}
+            </div>
+            <div class="banner ${errorText ? "" : "ok"}">${errorText ? this._escape(error.attributes?.friendly_name ? `${error.state}` : error.state) : t(hass, "no_error")}</div>
+          ` : ""}
+        </div>
+      </ha-card>
+    `;
+    this._bind(climate, { min, max, target, awayOn, ids });
+  }
+
+  _slider(kind, label, state) {
+    const value = num(state.state) ?? 0;
+    const min = num(state.attributes.min) ?? 30;
+    const max = num(state.attributes.max) ?? 80;
+    const step = num(state.attributes.step) ?? 1;
+    return `
+      <div class="slider-row">
+        <label>${label}</label>
+        <div class="value">${value}°</div>
+        <input type="range" data-slider="${kind}" min="${min}" max="${max}" step="${step}" value="${value}">
+      </div>
+    `;
+  }
+
+  _bind(climate, ctx) {
+    const root = this.shadowRoot;
+    root.querySelector('[data-act="temp-down"]')?.addEventListener("click", () => {
+      if (ctx.target == null) return;
+      this._call("climate", "set_temperature", ctx.ids.climate, { temperature: ctx.target - 1 });
+    });
+    root.querySelector('[data-act="temp-up"]')?.addEventListener("click", () => {
+      if (ctx.target == null) return;
+      this._call("climate", "set_temperature", ctx.ids.climate, { temperature: ctx.target + 1 });
+    });
+    root.querySelector('[data-act="off"]')?.addEventListener("click", () => {
+      this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "off" });
+    });
+    root.querySelector('[data-act="heat"]')?.addEventListener("click", () => {
+      this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "heat" });
+    });
+    root.querySelector('[data-act="away"]')?.addEventListener("click", () => {
+      if (ctx.ids.away) {
+        this._call("switch", ctx.awayOn ? "turn_off" : "turn_on", ctx.ids.away);
+      } else {
+        this._call("climate", "set_preset_mode", ctx.ids.climate, { preset_mode: ctx.awayOn ? "none" : "away" });
+      }
+    });
+    root.querySelector('[data-act="mode-room"]')?.addEventListener("click", () => {
+      this._call("select", "select_option", ctx.ids.mode, { option: "room" });
+    });
+    root.querySelector('[data-act="mode-water"]')?.addEventListener("click", () => {
+      this._call("select", "select_option", ctx.ids.mode, { option: "water" });
+    });
+    root.querySelectorAll("input[type=range]").forEach((input) => {
+      input.addEventListener("input", (event) => {
+        const label = event.target.closest(".slider-row")?.querySelector(".value");
+        if (label) label.textContent = `${event.target.value}°`;
+      });
+      input.addEventListener("change", (event) => {
+        const kind = event.target.dataset.slider;
+        const entityId = kind === "water" ? ctx.ids.water : ctx.ids.dhw;
+        this._call("number", "set_value", entityId, { value: Number(event.target.value) });
+      });
+    });
+  }
+
+  _escape(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+}
+
+customElements.define(CARD_TYPE, NavienNr40dCard);
+
+window.customCards = window.customCards || [];
+window.customCards.push({
+  type: CARD_TYPE,
+  name: "Navien NR-40D",
+  description: "Compact boiler card for the Navien NR-40D integration",
+  preview: true,
+});
+
+console.info(`%c NAVIEN-NR40D-CARD %c ${CARD_VERSION} `, "background:#f97316;color:#fff;font-weight:700", "background:transparent;color:#f97316");

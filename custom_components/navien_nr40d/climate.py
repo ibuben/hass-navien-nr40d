@@ -43,6 +43,9 @@ class NavienClimate(NavienEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
     )
 
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "climate")
+
     @property
     def available(self) -> bool:
         return super().available and self.status is not None

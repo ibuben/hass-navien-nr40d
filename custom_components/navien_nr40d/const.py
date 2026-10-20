@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "navien_nr40d"
+VERSION = "0.2.0"
 DEFAULT_NAME = "Navien NR-40D"
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORTS = "7000,21001,21003"
