@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.3";
+const CARD_VERSION = "0.2.4";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -337,43 +337,18 @@ class NavienNr40dCard extends HTMLElement {
   static getConfigForm() {
     return {
       schema: [
-        {
-          name: "device",
-          selector: {
-            device: {
-              filter: [{ integration: "navien_nr40d" }, { manufacturer: "KD Navien" }],
-            },
-          },
-        },
-        {
-          name: "entity",
-          selector: {
-            entity: {
-              filter: [
-                { integration: "navien_nr40d", domain: "climate" },
-                { manufacturer: "KD Navien", domain: "climate" },
-              ],
-            },
-          },
-        },
+        { name: "entity", selector: { entity: { domain: "climate" } } },
         { name: "name", selector: { text: {} } },
       ],
-      computeLabel: (schema) => {
-        const labels = {
-          en: { device: "Device", entity: "Thermostat", name: "Name" },
-          ru: { device: "Устройство", entity: "Термостат", name: "Имя" },
-        };
-        const language = document.querySelector("home-assistant")?.hass?.language || "en";
-        const pack = language.startsWith("ru") ? labels.ru : labels.en;
-        return pack[schema.name] || schema.name;
-      },
     };
   }
 
   static getStubConfig(hass) {
-    const entity = findNavienClimate(hass) || "";
-    const device = hass.entities?.[entity]?.device_id || "";
-    return device ? { device, entity } : { entity };
+    try {
+      return { entity: findNavienClimate(hass) || "" };
+    } catch (error) {
+      return { entity: "" };
+    }
   }
 
   setConfig(config) {
@@ -569,14 +544,18 @@ class NavienNr40dCard extends HTMLElement {
   }
 }
 
-customElements.define(CARD_TYPE, NavienNr40dCard);
+if (!customElements.get(CARD_TYPE)) {
+  customElements.define(CARD_TYPE, NavienNr40dCard);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: CARD_TYPE,
-  name: "Navien NR-40D",
-  description: "Compact boiler card for the Navien NR-40D integration",
-  preview: true,
-});
+if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
+  window.customCards.push({
+    type: CARD_TYPE,
+    name: "Navien NR-40D",
+    description: "Navien NR-40D boiler card",
+    preview: false,
+  });
+}
 
 console.info(`%c NAVIEN-NR40D-CARD %c ${CARD_VERSION} `, "background:#f97316;color:#fff;font-weight:700", "background:transparent;color:#f97316");
