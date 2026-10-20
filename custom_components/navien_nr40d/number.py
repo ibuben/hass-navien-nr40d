@@ -12,6 +12,8 @@ from .const import (
     DHW_TEMP_MAX,
     DHW_TEMP_MIN,
     DOMAIN,
+    ROOM_TEMP_MAX,
+    ROOM_TEMP_MIN,
     WATER_TEMP_MAX,
     WATER_TEMP_MIN,
 )
@@ -25,6 +27,7 @@ async def async_setup_entry(
     coordinator: NavienCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
+            NavienRoomTempNumber(coordinator),
             NavienWaterTempNumber(coordinator),
             NavienDhwTempNumber(coordinator),
         ]
@@ -39,6 +42,30 @@ class NavienNumber(NavienEntity, NumberEntity):
     @property
     def available(self) -> bool:
         return super().available and self.status is not None
+
+
+class NavienRoomTempNumber(NavienNumber):
+    _attr_translation_key = "room_target"
+
+    def __init__(self, coordinator: NavienCoordinator) -> None:
+        super().__init__(coordinator, "room_target")
+
+    @property
+    def native_min_value(self) -> float:
+        device = self.coordinator.data.device
+        return device.room_temp_min if device else ROOM_TEMP_MIN
+
+    @property
+    def native_max_value(self) -> float:
+        device = self.coordinator.data.device
+        return device.room_temp_max if device else ROOM_TEMP_MAX
+
+    @property
+    def native_value(self) -> float | None:
+        return None if self.status is None else self.status.room_target
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_room_temp(value)
 
 
 class NavienWaterTempNumber(NavienNumber):

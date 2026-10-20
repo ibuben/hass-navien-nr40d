@@ -14,7 +14,30 @@ from .entity import NavienEntity
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    async_add_entities([NavienAwaySwitch(hass.data[DOMAIN][entry.entry_id])])
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([NavienPowerSwitch(coordinator), NavienAwaySwitch(coordinator)])
+
+
+class NavienPowerSwitch(NavienEntity, SwitchEntity):
+    _attr_translation_key = "power"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "power")
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.status is not None
+
+    @property
+    def is_on(self) -> bool:
+        status = self.status
+        return bool(status and status.power)
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.coordinator.async_set_power(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.coordinator.async_set_power(False)
 
 
 class NavienAwaySwitch(NavienEntity, SwitchEntity):

@@ -33,7 +33,7 @@ class NavienClimate(NavienEntity, ClimateEntity):
     _attr_translation_key = "boiler"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_preset_modes = [PRESET_NONE, PRESET_AWAY]
-    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 1
     _attr_precision = PRECISION_HALVES
     _attr_supported_features = (
@@ -59,11 +59,11 @@ class NavienClimate(NavienEntity, ClimateEntity):
         return HVACAction.HEATING if status.heating else HVACAction.IDLE
 
     @property
-    def native_current_temperature(self) -> float | None:
+    def current_temperature(self) -> float | None:
         return None if self.status is None else self.status.room_temp
 
     @property
-    def native_target_temperature(self) -> float | None:
+    def target_temperature(self) -> float | None:
         return None if self.status is None else self.status.room_target
 
     @property
@@ -83,6 +83,12 @@ class NavienClimate(NavienEntity, ClimateEntity):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         await self.coordinator.async_set_power(hvac_mode != HVACMode.OFF)
+
+    async def async_turn_on(self) -> None:
+        await self.coordinator.async_set_power(True)
+
+    async def async_turn_off(self) -> None:
+        await self.coordinator.async_set_power(False)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temperature = kwargs.get(ATTR_TEMPERATURE)

@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.8";
+const CARD_VERSION = "0.2.9";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -366,6 +366,7 @@ function pickDomain(ids, hass, domain, hints) {
     const hit = candidates.find((entityId) => matchHint(entityId, hass?.entities?.[entityId], [hint]));
     if (hit) return hit;
   }
+  if (hints && hints.length) return candidates.length === 1 ? candidates[0] : null;
   return candidates[0] || null;
 }
 
@@ -444,9 +445,12 @@ class NavienNr40dCard extends HTMLElement {
     return {
       climate: configured?.startsWith("climate.") ? configured : pickClimate(ids, hass),
       room: this._config.room_entity || pickDomain(ids, hass, "sensor", ["room_temp", "room_temperature", "комнат"]),
-      water: this._config.water_entity || pickDomain(ids, hass, "number", ["water_temp", "heating_water", "water", "теплоносител", "teplonos"]),
+      room_target: this._config.room_target_entity || pickDomain(ids, hass, "number", ["room_target", "room_setpoint"]),
+      water: this._config.water_entity || pickDomain(ids, hass, "number", ["water_temp", "heating_water", "теплоносител", "teplonos"]),
       dhw: this._config.dhw_entity || pickDomain(ids, hass, "number", ["dhw_temp", "dhw", "гвс", "gvs"]),
-      mode: this._config.mode_entity || pickDomain(ids, hass, "select", ["heating_mode", "mode"]),
+      mode: this._config.mode_entity || pickDomain(ids, hass, "select", ["heating_mode"]),
+      mode_sensor: pickDomain(ids, hass, "sensor", ["mode"]),
+      power: this._config.power_entity || pickDomain(ids, hass, "switch", ["power", "отопление"]),
       away: this._config.away_entity || pickDomain(ids, hass, "switch", ["away"]),
       connected: this._config.connected_entity || pickDomain(ids, hass, "binary_sensor", ["connected", "controller_link", "connectivity"]),
       error: this._config.error_entity || pickDomain(ids, hass, "sensor", ["error", "ошиб"]),
@@ -465,10 +469,13 @@ class NavienNr40dCard extends HTMLElement {
     const ids = this._entities();
     const climate = hass?.states?.[ids.climate];
     const room = hass?.states?.[ids.room];
+    const roomTarget = hass?.states?.[ids.room_target];
+    const power = hass?.states?.[ids.power];
     const connected = hass?.states?.[ids.connected];
     const water = hass?.states?.[ids.water];
     const dhw = hass?.states?.[ids.dhw];
     const mode = hass?.states?.[ids.mode];
+    const modeSensor = hass?.states?.[ids.mode_sensor];
     const away = hass?.states?.[ids.away];
     const error = hass?.states?.[ids.error];
     const deviceId = normalizeDeviceId(this._config.device);
@@ -476,22 +483,29 @@ class NavienNr40dCard extends HTMLElement {
     const name = this._config.name || climate?.attributes?.friendly_name || deviceName || t(hass, "title");
     const online = connected
       ? connected.state === "on"
-      : Boolean((climate || room || water || dhw) && climate?.state !== "unavailable");
+      : Boolean(climate || room || water || dhw);
     const heating = climate?.attributes?.hvac_action === "heating";
     const current = num(climate?.attributes?.current_temperature) ?? num(room?.state);
-    const target = num(climate?.attributes?.temperature);
-    const min = num(climate?.attributes?.min_temp) ?? 10;
-    const max = num(climate?.attributes?.max_temp) ?? 40;
-    const awayOn = away?.state === "on" || climate?.attributes?.preset_mode === "away";
+    const target = num(climate?.attributes?.temperature) ?? num(roomTarget?.state);
+    const min = num(climate?.attributes?.min_temp) ?? num(roomTarget?.attributes?.min) ?? 10;
+    const max = num(climate?.attributes?.max_temp) ?? num(roomTarget?.attributes?.max) ?? 40;
+    const modeValue = [mode?.state, modeSensor?.state].find(
+      (value) => value && !["unknown", "unavailable"].includes(value)
+    );
+    const heatOn = climate?.state === "heat" || power?.state === "on"
+      || ["on", "room", "water", "away", "heat"].includes(modeValue);
+    const awayOn = away?.state === "on" || climate?.attributes?.preset_mode === "away" || modeValue === "away";
     const errorText =
       error && error.state && !OK_ERRORS.includes(String(error.state).trim().toLowerCase())
         ? error.state
         : null;
-    const ready = Boolean(climate || room || water || dhw || mode || away);
+    const ready = Boolean(climate || room || roomTarget || water || dhw || mode || power || away);
     const hasDevice = Boolean(deviceId || this._config.entity);
+    const canSetRoom = Boolean(ids.climate || ids.room_target);
+    const canPower = Boolean(ids.climate || ids.power);
     const subtitle = heating
       ? t(hass, "heating")
-      : climate?.state === "heat"
+      : heatOn
         ? t(hass, "idle")
         : t(hass, "off");
 
@@ -525,7 +539,7 @@ class NavienNr40dCard extends HTMLElement {
                 <div class="temp">${current ?? "–"}<small>°</small></div>
                 <div class="temp-meta">${t(hass, "room")}</div>
               </div>
-              ${climate ? `
+              ${canSetRoom ? `
               <div class="setpoint">
                 <button class="btn" data-act="temp-down" ${target <= min ? "disabled" : ""}>−</button>
                 <div>
@@ -536,21 +550,23 @@ class NavienNr40dCard extends HTMLElement {
               </div>
               ` : ""}
             </div>
-            ${climate ? `
+            ${canPower || away ? `
             <div class="row">
+              ${canPower ? `
               <div class="seg">
-                <button data-act="off" class="${climate.state === "off" ? "active" : ""}">${t(hass, "off")}</button>
-                <button data-act="heat" class="${climate.state === "heat" ? "active" : ""}">${t(hass, "heat")}</button>
+                <button data-act="off" class="${heatOn ? "" : "active"}">${t(hass, "off")}</button>
+                <button data-act="heat" class="${heatOn ? "active" : ""}">${t(hass, "heat")}</button>
               </div>
-              ${away || climate?.attributes?.preset_mode !== undefined ? `
+              ` : ""}
+              ${away ? `
                 <button class="chip ${awayOn ? "active" : ""}" data-act="away">${t(hass, "away")}</button>
               ` : ""}
             </div>
             ` : ""}
             ${mode ? `
               <div class="seg">
-                <button data-act="mode-room" class="${isRoom(mode.state) ? "active" : ""}">${t(hass, "mode_room")}</button>
-                <button data-act="mode-water" class="${isWater(mode.state) ? "active" : ""}">${t(hass, "mode_water")}</button>
+                <button data-act="mode-room" class="${isRoom(modeValue) ? "active" : ""}">${t(hass, "mode_room")}</button>
+                <button data-act="mode-water" class="${isWater(modeValue) ? "active" : ""}">${t(hass, "mode_water")}</button>
               </div>
             ` : ""}
             <div class="sliders">
@@ -562,7 +578,7 @@ class NavienNr40dCard extends HTMLElement {
         </div>
       </ha-card>
     `;
-    this._bind(climate, { min, max, target, awayOn, ids });
+    this._bind({ min, max, target, awayOn, heatOn, ids });
   }
 
   _slider(kind, label, state) {
@@ -579,21 +595,36 @@ class NavienNr40dCard extends HTMLElement {
     `;
   }
 
-  _bind(climate, ctx) {
+  _bind(ctx) {
     const root = this.shadowRoot;
+    const setRoom = (value) => {
+      if (ctx.ids.climate) {
+        this._call("climate", "set_temperature", ctx.ids.climate, { temperature: value });
+      } else {
+        this._call("number", "set_value", ctx.ids.room_target, { value });
+      }
+    };
     root.querySelector('[data-act="temp-down"]')?.addEventListener("click", () => {
       if (ctx.target == null) return;
-      this._call("climate", "set_temperature", ctx.ids.climate, { temperature: ctx.target - 1 });
+      setRoom(ctx.target - 1);
     });
     root.querySelector('[data-act="temp-up"]')?.addEventListener("click", () => {
       if (ctx.target == null) return;
-      this._call("climate", "set_temperature", ctx.ids.climate, { temperature: ctx.target + 1 });
+      setRoom(ctx.target + 1);
     });
     root.querySelector('[data-act="off"]')?.addEventListener("click", () => {
-      this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "off" });
+      if (ctx.ids.climate) {
+        this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "off" });
+      } else {
+        this._call("switch", "turn_off", ctx.ids.power);
+      }
     });
     root.querySelector('[data-act="heat"]')?.addEventListener("click", () => {
-      this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "heat" });
+      if (ctx.ids.climate) {
+        this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "heat" });
+      } else {
+        this._call("switch", "turn_on", ctx.ids.power);
+      }
     });
     root.querySelector('[data-act="away"]')?.addEventListener("click", () => {
       if (ctx.ids.away) {
