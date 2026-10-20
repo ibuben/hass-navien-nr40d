@@ -123,6 +123,9 @@
       "connected": {
         "name": "Controller link"
       },
+      "flame": {
+        "name": "Flame"
+      },
       "outdoor_sensor": {
         "name": "Outdoor sensor"
       }

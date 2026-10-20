@@ -123,6 +123,9 @@
       "connected": {
         "name": "Связь с пультом"
       },
+      "flame": {
+        "name": "Пламя"
+      },
       "outdoor_sensor": {
         "name": "Уличный датчик"
       }
