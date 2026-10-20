@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.5";
+const CARD_VERSION = "0.2.6";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -290,14 +290,20 @@ function climateFromDevice(hass, deviceId) {
   return ids.find((id) => id.startsWith("climate.")) || ids.find((id) => id.startsWith("select.")) || null;
 }
 
-function findNavienClimate(hass) {
-  const ids = Object.keys(hass?.states || {}).filter((id) => id.startsWith("climate."));
+function findNavienEntity(hass) {
+  const ids = Object.keys(hass?.entities || {});
   return (
-    ids.find((id) => hass.entities?.[id]?.platform === "navien_nr40d") ||
+    ids.find((id) => id.startsWith("climate.") && hass.entities[id].platform === "navien_nr40d") ||
+    ids.find((id) => hass.entities[id].platform === "navien_nr40d") ||
     ids.find((id) => id.includes("navien")) ||
-    ids.find((id) => (hass.entities?.[id]?.unique_id || "").includes("navien")) ||
     null
   );
+}
+
+function resolveClimate(hass, entityId) {
+  if (!entityId) return null;
+  if (entityId.startsWith("climate.")) return entityId;
+  return climateFromDevice(hass, hass.entities?.[entityId]?.device_id);
 }
 
 function related(hass, climateId, domain, hints) {
@@ -337,7 +343,7 @@ class NavienNr40dCard extends HTMLElement {
   static getConfigForm() {
     return {
       schema: [
-        { name: "entity", selector: { entity: { domain: "climate" } } },
+        { name: "entity", selector: { entity: { integration: "navien_nr40d" } } },
         { name: "name", selector: { text: {} } },
       ],
     };
@@ -345,7 +351,7 @@ class NavienNr40dCard extends HTMLElement {
 
   static getStubConfig(hass) {
     try {
-      return { entity: findNavienClimate(hass) || "" };
+      return { entity: findNavienEntity(hass) || "" };
     } catch (error) {
       return { entity: "" };
     }
@@ -368,7 +374,7 @@ class NavienNr40dCard extends HTMLElement {
   _entities() {
     const hass = this._hass;
     const climateId =
-      this._config.entity || climateFromDevice(hass, this._config.device);
+      resolveClimate(hass, this._config.entity) || climateFromDevice(hass, this._config.device);
     return {
       climate: climateId,
       water: this._config.water_entity || related(hass, climateId, "number", ["water_temp", "water"]),
