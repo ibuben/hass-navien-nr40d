@@ -1,0 +1,122 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Navien NR-40D",
+        "description": "The integration listens for the room controller. Point the controller at this Home Assistant host (DNS or router redirect) instead of the cloud.",
+        "data": {
+          "name": "Name",
+          "host": "Listen address",
+          "ports": "TCP ports",
+          "poll_interval": "Status poll interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_ports": "Enter one or more TCP ports, separated by commas."
+    },
+    "abort": {
+      "already_configured": "The NR-40D integration is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Navien NR-40D options",
+        "data": {
+          "name": "Name",
+          "host": "Listen address",
+          "ports": "TCP ports",
+          "poll_interval": "Status poll interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_ports": "Enter one or more TCP ports, separated by commas."
+    }
+  },
+  "entity": {
+    "climate": {
+      "boiler": {
+        "name": "Boiler"
+      }
+    },
+    "number": {
+      "water_temp": {
+        "name": "Heating water temperature"
+      },
+      "dhw_temp": {
+        "name": "DHW temperature"
+      }
+    },
+    "select": {
+      "heating_mode": {
+        "name": "Heating mode",
+        "state": {
+          "room": "Room temperature",
+          "water": "Heating water"
+        }
+      }
+    },
+    "switch": {
+      "away": {
+        "name": "Away mode"
+      }
+    },
+    "sensor": {
+      "room_temp": {
+        "name": "Room temperature"
+      },
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "off": "Off",
+          "on": "On",
+          "away_off": "Away off",
+          "away": "Away",
+          "room": "Room temperature",
+          "water": "Heating water",
+          "repeat_reserve": "Repeat timer",
+          "circle_reserve": "Cycle timer",
+          "simple_reserve": "Simple timer",
+          "hot_water_only": "Hot water only"
+        }
+      },
+      "error": {
+        "name": "Error",
+        "state": {
+          "ok": "None",
+          "unknown": "Unknown",
+          "e003": "E003 No flame or flame sensor open",
+          "e004": "E004 False flame signal",
+          "e012": "E012 Flameout",
+          "e016": "E016 Heat exchanger overheat",
+          "e046": "E046 Heat exchanger overheat sensor",
+          "e049": "E049 Fire prevention",
+          "e056": "E056 Modulating gas valve",
+          "e094": "E094 Room temperature sensor",
+          "e109": "E109 Fan",
+          "e110": "E110 Exhaust blocked",
+          "e127": "E127 APS sensor",
+          "e157": "E157 APS hose",
+          "e205": "E205 Heating water temperature sensor",
+          "e218": "E218 Return water temperature sensor",
+          "e302": "E302 Low water level",
+          "e313": "E313 Heating flow sensor",
+          "e407": "E407 DHW temperature sensor",
+          "e515": "E515 Controller",
+          "e517": "E517 DIP switch setting",
+          "e594": "E594 EEPROM",
+          "e615": "E615 Memory",
+          "e740": "E740 Outdoor temperature sensor",
+          "e782": "E782 No link to main control panel"
+        }
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Controller link"
+      }
+    }
+  }
+}

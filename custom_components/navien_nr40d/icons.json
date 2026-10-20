@@ -1,0 +1,42 @@
+{
+  "entity": {
+    "climate": {
+      "boiler": {
+        "default": "mdi:water-boiler"
+      }
+    },
+    "number": {
+      "water_temp": {
+        "default": "mdi:thermometer-water"
+      },
+      "dhw_temp": {
+        "default": "mdi:water-thermometer"
+      }
+    },
+    "select": {
+      "heating_mode": {
+        "default": "mdi:radiator",
+        "state": {
+          "room": "mdi:home-thermometer",
+          "water": "mdi:radiator"
+        }
+      }
+    },
+    "switch": {
+      "away": {
+        "default": "mdi:home-export-outline"
+      }
+    },
+    "sensor": {
+      "mode": {
+        "default": "mdi:tune"
+      },
+      "error": {
+        "default": "mdi:alert-circle-outline",
+        "state": {
+          "ok": "mdi:check-circle-outline"
+        }
+      }
+    }
+  }
+}
