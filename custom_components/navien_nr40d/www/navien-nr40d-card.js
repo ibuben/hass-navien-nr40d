@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -17,7 +17,7 @@ const STRINGS = {
     heating: "Heating",
     idle: "Idle",
     offline: "Controller is offline",
-    pick: "Select a climate entity",
+    pick: "Select the Navien device or its climate entity",
     no_error: "No errors",
     connected: "Online",
     disconnected: "Offline",
@@ -37,7 +37,7 @@ const STRINGS = {
     heating: "Нагрев",
     idle: "Ожидание",
     offline: "Пульт не на связи",
-    pick: "Выберите climate-сущность",
+    pick: "Выберите устройство Navien или его climate-сущность",
     no_error: "Ошибок нет",
     connected: "На связи",
     disconnected: "Нет связи",
@@ -265,6 +265,40 @@ function num(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const ROOM_OPTIONS = ["room", "По комнате"];
+const WATER_OPTIONS = ["water", "По теплоносителю"];
+const OK_ERRORS = ["ok", "none", "нет", "unavailable", "unknown", "0", ""];
+
+function isRoom(state) {
+  return ROOM_OPTIONS.includes(state);
+}
+
+function isWater(state) {
+  return WATER_OPTIONS.includes(state);
+}
+
+function optionFor(state, wanted) {
+  const options = state?.attributes?.options || [];
+  return wanted.find((item) => options.includes(item)) || wanted[0];
+}
+
+function climateFromDevice(hass, deviceId) {
+  if (!hass || !deviceId) return null;
+  return Object.keys(hass.entities || {}).find(
+    (id) => id.startsWith("climate.") && hass.entities[id].device_id === deviceId
+  ) || null;
+}
+
+function findNavienClimate(hass) {
+  const ids = Object.keys(hass?.states || {}).filter((id) => id.startsWith("climate."));
+  return (
+    ids.find((id) => hass.entities?.[id]?.platform === "navien_nr40d") ||
+    ids.find((id) => id.includes("navien")) ||
+    ids.find((id) => (hass.entities?.[id]?.unique_id || "").includes("navien")) ||
+    null
+  );
+}
+
 function related(hass, climateId, domain, hints) {
   if (!hass || !climateId) return null;
   const deviceId = hass.entities?.[climateId]?.device_id;
@@ -272,15 +306,21 @@ function related(hass, climateId, domain, hints) {
   if (deviceId) {
     const sameDevice = candidates.filter((id) => hass.entities?.[id]?.device_id === deviceId);
     for (const hint of hints) {
-      const hit = sameDevice.find((id) => id.includes(hint) || hass.entities?.[id]?.translation_key === hint);
+      const hit = sameDevice.find((id) => {
+        const uniqueId = hass.entities?.[id]?.unique_id || "";
+        const key = hass.entities?.[id]?.translation_key || "";
+        return id.includes(hint) || uniqueId.includes(hint) || key === hint;
+      });
       if (hit) return hit;
     }
     if (sameDevice.length === 1) return sameDevice[0];
   }
-  const base = climateId.replace(/^climate\./, "");
+  const base = climateId.replace(/^climate\./, "").replace(/_2$/, "");
   for (const hint of hints) {
     const guess = `${domain}.${base}_${hint}`;
     if (hass.states[guess]) return guess;
+    const mqttGuess = `${domain}.navien_nr40d_${hint}`;
+    if (hass.states[mqttGuess]) return mqttGuess;
   }
   return null;
 }
@@ -297,8 +337,11 @@ class NavienNr40dCard extends HTMLElement {
     return {
       schema: [
         {
+          name: "device",
+          selector: { device: { entity: { domain: "climate" } } },
+        },
+        {
           name: "entity",
-          required: true,
           selector: { entity: { domain: "climate" } },
         },
         { name: "name", selector: { text: {} } },
@@ -307,14 +350,9 @@ class NavienNr40dCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    const entity =
-      Object.keys(hass.states).find((id) => {
-        const platform = hass.entities?.[id]?.platform;
-        return id.startsWith("climate.") && platform === "navien_nr40d";
-      }) ||
-      Object.keys(hass.states).find((id) => id.startsWith("climate.")) ||
-      "";
-    return { entity };
+    const entity = findNavienClimate(hass) || "";
+    const device = hass.entities?.[entity]?.device_id || "";
+    return device ? { device, entity } : { entity };
   }
 
   setConfig(config) {
@@ -332,8 +370,9 @@ class NavienNr40dCard extends HTMLElement {
   }
 
   _entities() {
-    const climateId = this._config.entity;
     const hass = this._hass;
+    const climateId =
+      this._config.entity || climateFromDevice(hass, this._config.device);
     return {
       climate: climateId,
       water: this._config.water_entity || related(hass, climateId, "number", ["water_temp", "water"]),
@@ -370,9 +409,10 @@ class NavienNr40dCard extends HTMLElement {
     const min = num(climate?.attributes?.min_temp) ?? 10;
     const max = num(climate?.attributes?.max_temp) ?? 40;
     const awayOn = away?.state === "on" || climate?.attributes?.preset_mode === "away";
-    const errorText = error && error.state && !["ok", "unknown", "unavailable", "unknown"].includes(error.state)
-      ? error.state
-      : null;
+    const errorText =
+      error && error.state && !OK_ERRORS.includes(String(error.state).trim().toLowerCase())
+        ? error.state
+        : null;
 
     root.innerHTML = `
       <style>${STYLE}</style>
@@ -423,8 +463,8 @@ class NavienNr40dCard extends HTMLElement {
             </div>
             ${mode ? `
               <div class="seg">
-                <button data-act="mode-room" class="${mode.state === "room" ? "active" : ""}">${t(hass, "mode_room")}</button>
-                <button data-act="mode-water" class="${mode.state === "water" ? "active" : ""}">${t(hass, "mode_water")}</button>
+                <button data-act="mode-room" class="${isRoom(mode.state) ? "active" : ""}">${t(hass, "mode_room")}</button>
+                <button data-act="mode-water" class="${isWater(mode.state) ? "active" : ""}">${t(hass, "mode_water")}</button>
               </div>
             ` : ""}
             <div class="sliders">
@@ -477,10 +517,14 @@ class NavienNr40dCard extends HTMLElement {
       }
     });
     root.querySelector('[data-act="mode-room"]')?.addEventListener("click", () => {
-      this._call("select", "select_option", ctx.ids.mode, { option: "room" });
+      this._call("select", "select_option", ctx.ids.mode, {
+        option: optionFor(this._hass?.states?.[ctx.ids.mode], ROOM_OPTIONS),
+      });
     });
     root.querySelector('[data-act="mode-water"]')?.addEventListener("click", () => {
-      this._call("select", "select_option", ctx.ids.mode, { option: "water" });
+      this._call("select", "select_option", ctx.ids.mode, {
+        option: optionFor(this._hass?.states?.[ctx.ids.mode], WATER_OPTIONS),
+      });
     });
     root.querySelectorAll("input[type=range]").forEach((input) => {
       input.addEventListener("input", (event) => {

@@ -24,7 +24,8 @@ class NavienEntity(CoordinatorEntity[NavienCoordinator]):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.data.connected
+        # Stay visible in pickers while the remote is offline; the card shows link state.
+        return super().available
 
     @property
     def status(self) -> NavienStatus | None:

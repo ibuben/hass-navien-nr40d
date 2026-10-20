@@ -47,13 +47,11 @@ class NavienClimate(NavienEntity, ClimateEntity):
         super().__init__(coordinator, "climate")
 
     @property
-    def available(self) -> bool:
-        return super().available and self.status is not None
-
-    @property
-    def hvac_mode(self) -> HVACMode:
+    def hvac_mode(self) -> HVACMode | None:
         status = self.status
-        return HVACMode.HEAT if status and status.power else HVACMode.OFF
+        if status is None:
+            return None
+        return HVACMode.HEAT if status.power else HVACMode.OFF
 
     @property
     def hvac_action(self) -> HVACAction:
