@@ -13,7 +13,7 @@
 
 ```yaml
 type: custom:navien-nr40d-card
-entity: climate.navien_nr40d
+device: <id устройства Navien NR-40D>
 ```
 
 Или **Настройки → Панели → Ресурсы → Добавить**: `/navien_nr40d/navien-nr40d-card.js`, тип JavaScript-модуль. Термостат в списках называется **Котёл**, само устройство климатом не является.

@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.6";
+const CARD_VERSION = "0.2.7";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -17,7 +17,7 @@ const STRINGS = {
     heating: "Heating",
     idle: "Idle",
     offline: "Controller is offline",
-    pick: "Select the Navien device or its climate entity",
+    pick: "Select the Navien NR-40D device",
     no_error: "No errors",
     connected: "Online",
     disconnected: "Offline",
@@ -37,7 +37,7 @@ const STRINGS = {
     heating: "Нагрев",
     idle: "Ожидание",
     offline: "Пульт не на связи",
-    pick: "Выберите устройство Navien или его climate-сущность",
+    pick: "Выберите устройство Navien NR-40D",
     no_error: "Ошибок нет",
     connected: "На связи",
     disconnected: "Нет связи",
@@ -284,10 +284,14 @@ function optionFor(state, wanted) {
 
 function climateFromDevice(hass, deviceId) {
   if (!hass || !deviceId) return null;
-  const ids = Object.keys(hass.entities || {}).filter(
-    (id) => hass.entities[id].device_id === deviceId
-  );
-  return ids.find((id) => id.startsWith("climate.")) || ids.find((id) => id.startsWith("select.")) || null;
+  return Object.keys(hass.entities || {}).find(
+    (id) => id.startsWith("climate.") && hass.entities[id].device_id === deviceId
+  ) || null;
+}
+
+function anyEntityOnDevice(hass, deviceId) {
+  if (!hass || !deviceId) return null;
+  return Object.keys(hass.entities || {}).find((id) => hass.entities[id].device_id === deviceId) || null;
 }
 
 function findNavienEntity(hass) {
@@ -343,7 +347,10 @@ class NavienNr40dCard extends HTMLElement {
   static getConfigForm() {
     return {
       schema: [
-        { name: "entity", selector: { entity: { integration: "navien_nr40d" } } },
+        {
+          name: "device",
+          selector: { device: { filter: { integration: "navien_nr40d" } } },
+        },
         { name: "name", selector: { text: {} } },
       ],
     };
@@ -351,20 +358,29 @@ class NavienNr40dCard extends HTMLElement {
 
   static getStubConfig(hass) {
     try {
-      return { entity: findNavienEntity(hass) || "" };
+      const entity = findNavienEntity(hass);
+      return { device: hass.entities?.[entity]?.device_id || "" };
     } catch (error) {
-      return { entity: "" };
+      return { device: "" };
     }
   }
 
   setConfig(config) {
     this._config = config || {};
-    this._render();
+    this._safeRender();
   }
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    this._safeRender();
+  }
+
+  _safeRender() {
+    try {
+      this._render();
+    } catch (error) {
+      console.error("navien-nr40d-card", error);
+    }
   }
 
   getCardSize() {
@@ -373,16 +389,18 @@ class NavienNr40dCard extends HTMLElement {
 
   _entities() {
     const hass = this._hass;
-    const climateId =
-      resolveClimate(hass, this._config.entity) || climateFromDevice(hass, this._config.device);
+    const deviceId = this._config.device || hass?.entities?.[this._config.entity]?.device_id;
+    const seed = climateFromDevice(hass, deviceId) || resolveClimate(hass, this._config.entity)
+      || anyEntityOnDevice(hass, deviceId) || this._config.entity;
+    const climateId = climateFromDevice(hass, deviceId) || resolveClimate(hass, this._config.entity);
     return {
       climate: climateId,
-      water: this._config.water_entity || related(hass, climateId, "number", ["water_temp", "water"]),
-      dhw: this._config.dhw_entity || related(hass, climateId, "number", ["dhw_temp", "dhw"]),
-      mode: this._config.mode_entity || related(hass, climateId, "select", ["heating_mode", "mode"]),
-      away: this._config.away_entity || related(hass, climateId, "switch", ["away"]),
-      connected: this._config.connected_entity || related(hass, climateId, "binary_sensor", ["connected"]),
-      error: this._config.error_entity || related(hass, climateId, "sensor", ["error"]),
+      water: this._config.water_entity || related(hass, seed, "number", ["water_temp", "water"]),
+      dhw: this._config.dhw_entity || related(hass, seed, "number", ["dhw_temp", "dhw"]),
+      mode: this._config.mode_entity || related(hass, seed, "select", ["heating_mode", "mode"]),
+      away: this._config.away_entity || related(hass, seed, "switch", ["away"]),
+      connected: this._config.connected_entity || related(hass, seed, "binary_sensor", ["connected"]),
+      error: this._config.error_entity || related(hass, seed, "sensor", ["error"]),
     };
   }
 
@@ -459,7 +477,7 @@ class NavienNr40dCard extends HTMLElement {
                 <button data-act="off" class="${climate.state === "off" ? "active" : ""}">${t(hass, "off")}</button>
                 <button data-act="heat" class="${climate.state === "heat" ? "active" : ""}">${t(hass, "heat")}</button>
               </div>
-              ${away || climate.attributes.preset_mode !== undefined ? `
+              ${away || climate?.attributes?.preset_mode !== undefined ? `
                 <button class="chip ${awayOn ? "active" : ""}" data-act="away">${t(hass, "away")}</button>
               ` : ""}
             </div>
