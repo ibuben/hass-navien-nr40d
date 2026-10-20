@@ -16,6 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import NavienCoordinator
 from .entity import NavienEntity
+from .protocol import decode_outdoor_block_temp
 
 
 async def async_setup_entry(
@@ -65,22 +66,20 @@ class NavienOutdoorTempSensor(NavienEntity, SensorEntity):
     def available(self) -> bool:
         return super().available and self.status is not None
 
-    @property
-    def _reported(self) -> bool:
-        status = self.status
-        device = self.coordinator.data.device
-        if status is None:
-            return False
-        # Flag value 2 means "supported/on"; 0.0 without it means no sensor, not a frosty 0 °C.
-        return (
-            status.outdoor_display == 2
-            or (device is not None and device.outdoor_display == 2)
-            or status.outdoor_temp != 0
-        )
+    def _block_temp(self) -> float:
+        block = self.coordinator.data.outdoor_block
+        return decode_outdoor_block_temp(bytes.fromhex(block)) if block else 0.0
 
     @property
     def native_value(self) -> float | None:
-        return self.status.outdoor_temp if self._reported else None
+        status = self.status
+        if status is None:
+            return None
+        # All-zero bytes mean the controller has no reading, not 0 °C outside.
+        if status.outdoor_temp != 0:
+            return status.outdoor_temp
+        block_temp = self._block_temp()
+        return block_temp if block_temp != 0 else None
 
     @property
     def extra_state_attributes(self) -> dict[str, object] | None:
@@ -89,11 +88,13 @@ class NavienOutdoorTempSensor(NavienEntity, SensorEntity):
             return None
         device = self.coordinator.data.device
         return {
-            "raw_bytes": status.raw[4:12],
+            "status_bytes": status.raw[4:12],
             "status_flag": status.outdoor_display,
+            "outdoor_block": self.coordinator.data.outdoor_block,
             "device_display_flag": device.outdoor_display if device else None,
             "device_control_flag": device.outdoor_control if device else None,
             "device_heat_stop_flag": device.outdoor_heat_stop if device else None,
+            "status_raw": status.raw,
         }
 
 

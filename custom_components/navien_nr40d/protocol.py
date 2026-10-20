@@ -116,6 +116,7 @@ class NavienData:
     gateway_id: str | None = None
     device: DeviceCaps | None = None
     status: NavienStatus | None = None
+    outdoor_block: str | None = None
 
 
 class Frame:
@@ -192,6 +193,11 @@ def decode_device(data: bytes) -> DeviceCaps:
         outdoor_heat_stop=payload[28],
         raw=payload.hex(),
     )
+
+
+def decode_outdoor_block_temp(data: bytes) -> float:
+    """Current outdoor reading from the 0x0F settings block (bytes 1-4)."""
+    return decode_outdoor_temp(data.ljust(5, b"\x00")[1:5])
 
 
 def decode_outdoor_temp(data: bytes) -> float:

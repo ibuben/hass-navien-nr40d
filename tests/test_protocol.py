@@ -15,6 +15,7 @@ from protocol import (  # noqa: E402
     Frame,
     FrameParser,
     crc16,
+    decode_outdoor_block_temp,
     decode_outdoor_temp,
     decode_status,
     parse_ports,
@@ -57,6 +58,9 @@ class ProtocolTests(unittest.TestCase):
         status = decode_status(bytes.fromhex("01ff050301000000050134326478010a00000003000200000000000001"))
         self.assertEqual(status.outdoor_temp, 13.5)
         self.assertEqual(status.outdoor_display, 2)
+        block = bytes.fromhex("0f040201000000000000000280000004000000040000000000")
+        self.assertEqual(decode_outdoor_block_temp(block), 12.4)
+        self.assertEqual(decode_outdoor_block_temp(bytes.fromhex("0f00000000")), 0.0)
 
     def test_error_byte_order(self) -> None:
         status = decode_status(bytes.fromhex("01ff000000000300050134326478010a00000003000000000000000001"))

@@ -36,6 +36,7 @@ from .const import (
     MODE_POWER_OFF,
     MODE_POWER_ON,
     MODE_WATER_SET_TEMP,
+    QUERY_OUTDOOR,
     SRC_APP,
     SRC_SERVER,
 )
@@ -146,6 +147,8 @@ class NavienCoordinator(DataUpdateCoordinator[NavienData]):
                     # Boiler service settings (e.g. the outdoor sensor) change the capability flags.
                     if polls % 10 == 0:
                         await self._send(CMD_DEVICE_INFO)
+                    if polls % 5 == 1:
+                        await self.async_query_outdoor()
         except asyncio.CancelledError:
             return
 
@@ -204,10 +207,15 @@ class NavienCoordinator(DataUpdateCoordinator[NavienData]):
             self.hass.loop.call_later(
                 2, lambda: self.hass.async_create_task(self.async_query())
             )
+            self.hass.loop.call_later(
+                5, lambda: self.hass.async_create_task(self.async_query_outdoor())
+            )
         elif frame.cmd == CMD_DEVICE_INFO_REPLY:
             self._set_data(device=decode_device(frame.data), gateway_id=frame.gw.hex())
         elif frame.cmd == CMD_STATUS_REPLY and frame.data[:1] == b"\x01":
             self._set_data(status=decode_status(frame.data), gateway_id=frame.gw.hex())
+        elif frame.cmd == CMD_STATUS_REPLY and frame.data[:1] == bytes([QUERY_OUTDOOR]):
+            self._set_data(outdoor_block=frame.data.hex())
 
     def _set_data(self, **changes: Any) -> None:
         current = self.data
@@ -218,6 +226,7 @@ class NavienCoordinator(DataUpdateCoordinator[NavienData]):
                 gateway_id=changes.get("gateway_id", current.gateway_id),
                 device=changes.get("device", current.device),
                 status=changes.get("status", current.status),
+                outdoor_block=changes.get("outdoor_block", current.outdoor_block),
             )
         )
 
@@ -238,6 +247,9 @@ class NavienCoordinator(DataUpdateCoordinator[NavienData]):
 
     async def async_query(self) -> None:
         await self._send(CMD_QUERY, b"\x00")
+
+    async def async_query_outdoor(self) -> None:
+        await self._send(CMD_QUERY, bytes([QUERY_OUTDOOR]))
 
     async def async_control(self, mode: int, value: int | None = None) -> None:
         payload = bytes([mode]) if value is None else bytes([mode, value])
