@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.2";
+const CARD_VERSION = "0.2.3";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -284,9 +284,10 @@ function optionFor(state, wanted) {
 
 function climateFromDevice(hass, deviceId) {
   if (!hass || !deviceId) return null;
-  return Object.keys(hass.entities || {}).find(
-    (id) => id.startsWith("climate.") && hass.entities[id].device_id === deviceId
-  ) || null;
+  const ids = Object.keys(hass.entities || {}).filter(
+    (id) => hass.entities[id].device_id === deviceId
+  );
+  return ids.find((id) => id.startsWith("climate.")) || ids.find((id) => id.startsWith("select.")) || null;
 }
 
 function findNavienClimate(hass) {
@@ -338,14 +339,34 @@ class NavienNr40dCard extends HTMLElement {
       schema: [
         {
           name: "device",
-          selector: { device: { entity: { domain: "climate" } } },
+          selector: {
+            device: {
+              filter: [{ integration: "navien_nr40d" }, { manufacturer: "KD Navien" }],
+            },
+          },
         },
         {
           name: "entity",
-          selector: { entity: { domain: "climate" } },
+          selector: {
+            entity: {
+              filter: [
+                { integration: "navien_nr40d", domain: "climate" },
+                { manufacturer: "KD Navien", domain: "climate" },
+              ],
+            },
+          },
         },
         { name: "name", selector: { text: {} } },
       ],
+      computeLabel: (schema) => {
+        const labels = {
+          en: { device: "Device", entity: "Thermostat", name: "Name" },
+          ru: { device: "Устройство", entity: "Термостат", name: "Имя" },
+        };
+        const language = document.querySelector("home-assistant")?.hass?.language || "en";
+        const pack = language.startsWith("ru") ? labels.ru : labels.en;
+        return pack[schema.name] || schema.name;
+      },
     };
   }
 

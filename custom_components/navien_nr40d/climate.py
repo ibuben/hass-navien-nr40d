@@ -30,7 +30,7 @@ async def async_setup_entry(
 class NavienClimate(NavienEntity, ClimateEntity):
     """Room thermostat. Changing the target switches the boiler to room mode."""
 
-    _attr_name = None
+    _attr_translation_key = "boiler"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_preset_modes = [PRESET_NONE, PRESET_AWAY]
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
