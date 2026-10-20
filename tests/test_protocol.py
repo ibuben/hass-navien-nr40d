@@ -15,6 +15,7 @@ from protocol import (  # noqa: E402
     Frame,
     FrameParser,
     crc16,
+    decode_outdoor_temp,
     decode_status,
     parse_ports,
     time_payload,
@@ -48,6 +49,14 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(status.room_target, 25.0)
         self.assertEqual(status.water_target, 50.0)
         self.assertEqual(status.dhw_target, 60.0)
+
+    def test_outdoor_temp(self) -> None:
+        self.assertEqual(decode_outdoor_temp(bytes([5, 3, 1, 0])), 13.5)
+        self.assertEqual(decode_outdoor_temp(bytes([2, 7, 0, 0x80])), -7.2)
+        self.assertEqual(decode_outdoor_temp(bytes(4)), 0.0)
+        status = decode_status(bytes.fromhex("01ff050301000000050134326478010a00000003000200000000000001"))
+        self.assertEqual(status.outdoor_temp, 13.5)
+        self.assertEqual(status.outdoor_display, 2)
 
     def test_error_byte_order(self) -> None:
         status = decode_status(bytes.fromhex("01ff000000000300050134326478010a00000003000000000000000001"))

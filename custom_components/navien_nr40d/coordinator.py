@@ -136,11 +136,16 @@ class NavienCoordinator(DataUpdateCoordinator[NavienData]):
         self._servers.clear()
 
     async def _poll_loop(self) -> None:
+        polls = 0
         try:
             while True:
                 await asyncio.sleep(self._poll_interval)
                 if self._writer and self._gw:
                     await self.async_query()
+                    polls += 1
+                    # Boiler service settings (e.g. the outdoor sensor) change the capability flags.
+                    if polls % 10 == 0:
+                        await self._send(CMD_DEVICE_INFO)
         except asyncio.CancelledError:
             return
 

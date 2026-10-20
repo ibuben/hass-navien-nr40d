@@ -83,6 +83,9 @@ class DeviceCaps:
     water_temp_max: float = WATER_TEMP_MAX
     dhw_temp_min: float = DHW_TEMP_MIN
     dhw_temp_max: float = DHW_TEMP_MAX
+    outdoor_display: int = 0
+    outdoor_control: int = 0
+    outdoor_heat_stop: int = 0
     raw: str = ""
 
 
@@ -101,6 +104,8 @@ class NavienStatus:
     dhw_target: float = 50.0
     heat_level: int = 0
     quick_hot_water: int = 0
+    outdoor_temp: float = 0.0
+    outdoor_display: int = 0
     raw: str = ""
 
 
@@ -182,8 +187,20 @@ def decode_device(data: bytes) -> DeviceCaps:
         water_temp_max=payload[15] / 2,
         dhw_temp_min=payload[21] / 2,
         dhw_temp_max=payload[22] / 2,
+        outdoor_display=payload[26],
+        outdoor_control=payload[27],
+        outdoor_heat_stop=payload[28],
         raw=payload.hex(),
     )
+
+
+def decode_outdoor_temp(data: bytes) -> float:
+    """Digits as the Smart TOK app reads them: tens, ones, tenths, sign in the top bit."""
+    sign = "-" if data[3] & 0x80 else ""
+    try:
+        return float(f"{sign}{data[2]}{data[1]}.{data[0]}")
+    except ValueError:
+        return 0.0
 
 
 def decode_status(data: bytes) -> NavienStatus:
@@ -204,5 +221,7 @@ def decode_status(data: bytes) -> NavienStatus:
         dhw_target=payload[13] / 2,
         heat_level=payload[19],
         quick_hot_water=payload[28],
+        outdoor_temp=decode_outdoor_temp(payload[2:6]),
+        outdoor_display=payload[21],
         raw=payload.hex(),
     )

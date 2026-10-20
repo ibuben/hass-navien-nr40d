@@ -25,6 +25,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             NavienRoomTempSensor(coordinator),
+            NavienOutdoorTempSensor(coordinator),
             NavienModeSensor(coordinator),
             NavienErrorSensor(coordinator),
         ]
@@ -48,6 +49,52 @@ class NavienRoomTempSensor(NavienEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         return None if self.status is None else self.status.room_temp
+
+
+class NavienOutdoorTempSensor(NavienEntity, SensorEntity):
+    _attr_translation_key = "outdoor_temp"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: NavienCoordinator) -> None:
+        super().__init__(coordinator, "outdoor_temp")
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.status is not None
+
+    @property
+    def _reported(self) -> bool:
+        status = self.status
+        device = self.coordinator.data.device
+        if status is None:
+            return False
+        # Flag value 2 means "supported/on"; 0.0 without it means no sensor, not a frosty 0 °C.
+        return (
+            status.outdoor_display == 2
+            or (device is not None and device.outdoor_display == 2)
+            or status.outdoor_temp != 0
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        return self.status.outdoor_temp if self._reported else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object] | None:
+        status = self.status
+        if status is None:
+            return None
+        device = self.coordinator.data.device
+        return {
+            "raw_bytes": status.raw[4:12],
+            "status_flag": status.outdoor_display,
+            "device_display_flag": device.outdoor_display if device else None,
+            "device_control_flag": device.outdoor_control if device else None,
+            "device_heat_stop_flag": device.outdoor_heat_stop if device else None,
+        }
 
 
 class NavienModeSensor(NavienEntity, SensorEntity):

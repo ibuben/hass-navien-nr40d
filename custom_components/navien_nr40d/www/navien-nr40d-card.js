@@ -1,10 +1,11 @@
-const CARD_VERSION = "0.2.9";
+const CARD_VERSION = "0.3.0";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
   en: {
     title: "Navien",
     room: "Room",
+    outdoor: "Outside",
     target: "Target",
     heat: "Heat",
     off: "Off",
@@ -26,6 +27,7 @@ const STRINGS = {
   ru: {
     title: "Navien",
     room: "Комната",
+    outdoor: "На улице",
     target: "Уставка",
     heat: "Нагрев",
     off: "Выкл",
@@ -445,6 +447,7 @@ class NavienNr40dCard extends HTMLElement {
     return {
       climate: configured?.startsWith("climate.") ? configured : pickClimate(ids, hass),
       room: this._config.room_entity || pickDomain(ids, hass, "sensor", ["room_temp", "room_temperature", "комнат"]),
+      outdoor: this._config.outdoor_entity || pickDomain(ids, hass, "sensor", ["outdoor_temp", "outdoor", "уличн"]),
       room_target: this._config.room_target_entity || pickDomain(ids, hass, "number", ["room_target", "room_setpoint"]),
       water: this._config.water_entity || pickDomain(ids, hass, "number", ["water_temp", "heating_water", "теплоносител", "teplonos"]),
       dhw: this._config.dhw_entity || pickDomain(ids, hass, "number", ["dhw_temp", "dhw", "гвс", "gvs"]),
@@ -469,6 +472,7 @@ class NavienNr40dCard extends HTMLElement {
     const ids = this._entities();
     const climate = hass?.states?.[ids.climate];
     const room = hass?.states?.[ids.room];
+    const outdoorTemp = num(hass?.states?.[ids.outdoor]?.state);
     const roomTarget = hass?.states?.[ids.room_target];
     const power = hass?.states?.[ids.power];
     const connected = hass?.states?.[ids.connected];
@@ -537,7 +541,7 @@ class NavienNr40dCard extends HTMLElement {
             <div class="hero">
               <div>
                 <div class="temp">${current ?? "–"}<small>°</small></div>
-                <div class="temp-meta">${t(hass, "room")}</div>
+                <div class="temp-meta">${t(hass, "room")}${outdoorTemp != null ? ` · ${t(hass, "outdoor")} ${outdoorTemp}°` : ""}</div>
               </div>
               ${canSetRoom ? `
               <div class="setpoint">

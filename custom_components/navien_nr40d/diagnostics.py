@@ -40,6 +40,10 @@ async def async_get_config_entry_diagnostics(
             "water_temp_max": device.water_temp_max,
             "dhw_temp_min": device.dhw_temp_min,
             "dhw_temp_max": device.dhw_temp_max,
+            "outdoor_display": device.outdoor_display,
+            "outdoor_control": device.outdoor_control,
+            "outdoor_heat_stop": device.outdoor_heat_stop,
+            "raw": device.raw,
         },
         "status": None
         if status is None
@@ -53,5 +57,8 @@ async def async_get_config_entry_diagnostics(
             "room_target": status.room_target,
             "water_target": status.water_target,
             "dhw_target": status.dhw_target,
+            "outdoor_temp": status.outdoor_temp,
+            "outdoor_display": status.outdoor_display,
+            "raw": status.raw,
         },
     }
