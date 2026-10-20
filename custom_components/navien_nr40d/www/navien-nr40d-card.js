@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.3.4";
+const CARD_VERSION = "0.3.5";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -82,20 +82,26 @@ const STYLE = `
 :host {
   display: block;
   --navien-accent: #f97316;
-  --navien-soft: var(--secondary-background-color, rgba(127,127,127,.12));
+  --navien-accent-text: #fbbf24;
+  --navien-good: var(--success-color, #22c55e);
+  --navien-bad: var(--error-color, #ef4444);
+  --navien-line: var(--divider-color, rgba(127,127,127,.22));
+  --navien-tile: color-mix(in srgb, var(--primary-text-color, #fff) 4%, transparent);
+  --navien-track: color-mix(in srgb, var(--primary-text-color, #fff) 16%, transparent);
+  --mdc-icon-size: 20px;
 }
-ha-card {
-  padding: 0;
-  background:
-    radial-gradient(1200px 280px at 10% -20%, color-mix(in srgb, var(--navien-accent) 18%, transparent), transparent 55%),
-    var(--ha-card-background, var(--card-background-color, #fff));
-}
-ha-icon { --mdc-icon-size: 18px; display: inline-flex; }
+ha-card { padding: 0; }
+ha-icon { display: inline-flex; }
 .wrap {
-  padding: 16px 18px 14px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+}
+.tile {
+  background: var(--navien-tile);
+  border: 1px solid var(--navien-line);
+  border-radius: 16px;
 }
 .header {
   display: flex;
@@ -103,29 +109,35 @@ ha-icon { --mdc-icon-size: 18px; display: inline-flex; }
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 .logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--navien-accent) 16%, var(--navien-soft));
-  color: var(--secondary-text-color);
   flex: 0 0 auto;
-  --mdc-icon-size: 22px;
+  background: var(--navien-tile);
+  border: 1px solid var(--navien-line);
+  color: var(--secondary-text-color);
+  --mdc-icon-size: 26px;
 }
-.logo.on { color: var(--navien-accent); }
-.logo.flame { animation: pulse 1.6s ease-in-out infinite; }
+.logo.on {
+  color: var(--navien-accent);
+  background: color-mix(in srgb, var(--navien-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--navien-accent) 35%, transparent);
+}
+.logo.flame ha-icon { animation: flicker 1.4s ease-in-out infinite; }
 .title {
-  font-weight: 650;
-  font-size: 1.05rem;
+  font-weight: 700;
+  font-size: 1.25rem;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -133,163 +145,217 @@ ha-icon { --mdc-icon-size: 18px; display: inline-flex; }
 }
 .subtitle {
   color: var(--secondary-text-color);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
+  margin-top: 2px;
 }
 .badges {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
 .badge {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: var(--navien-soft);
+  background: var(--navien-tile);
+  border: 1px solid var(--navien-line);
   color: var(--disabled-text-color, #9ca3af);
+  --mdc-icon-size: 22px;
 }
-.badge.good { color: var(--success-color, #22c55e); }
-.badge.bad { color: var(--error-color, #ef4444); background: color-mix(in srgb, var(--error-color, #ef4444) 14%, transparent); }
-.badge.hot { color: var(--navien-accent); background: color-mix(in srgb, var(--navien-accent) 16%, transparent); }
+.badge.good {
+  color: var(--navien-good);
+  border-color: color-mix(in srgb, var(--navien-good) 30%, transparent);
+}
+.badge.bad {
+  color: var(--navien-bad);
+  background: color-mix(in srgb, var(--navien-bad) 14%, transparent);
+  border-color: color-mix(in srgb, var(--navien-bad) 40%, transparent);
+}
+.badge.hot {
+  color: var(--navien-accent);
+  background: color-mix(in srgb, var(--navien-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--navien-accent) 35%, transparent);
+}
 .badge.hot ha-icon { animation: flicker 1.4s ease-in-out infinite; }
-.badge.info { color: var(--info-color, #3b82f6); }
+.badge.info {
+  color: var(--info-color, #3b82f6);
+  border-color: color-mix(in srgb, var(--info-color, #3b82f6) 35%, transparent);
+}
 .hero {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
 }
-.temp {
-  font-size: 3.2rem;
-  line-height: 0.95;
-  font-weight: 720;
-  letter-spacing: -0.04em;
+.room {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
 }
-.temp small {
-  font-size: 1.3rem;
-  margin-left: 2px;
-  color: var(--secondary-text-color);
-}
-.meta {
-  display: inline-flex;
+.room-label {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 4px;
   color: var(--secondary-text-color);
-  font-size: 0.85rem;
-  margin-top: 4px;
-  --mdc-icon-size: 15px;
+  font-size: 0.9rem;
+  --mdc-icon-size: 30px;
+}
+.temp {
+  font-size: 3.6rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.temp small {
+  font-size: 2rem;
+  font-weight: 700;
+  vertical-align: top;
 }
 .setpoint {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  padding: 14px 12px;
 }
 .btn {
   appearance: none;
-  border: 0;
-  background: var(--navien-soft);
+  border: 1px solid var(--navien-line);
+  background: var(--navien-tile);
   color: var(--primary-text-color);
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   cursor: pointer;
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
+  --mdc-icon-size: 24px;
 }
-.btn:hover { filter: brightness(1.12); }
+.btn:hover { border-color: color-mix(in srgb, var(--navien-accent) 50%, transparent); }
 .btn:disabled { opacity: .4; cursor: default; }
-.target {
-  min-width: 3.4rem;
-  text-align: center;
-}
+.target { text-align: center; min-width: 3.6rem; }
 .target-value {
-  font-weight: 700;
-  font-size: 1.2rem;
+  font-weight: 800;
+  font-size: 1.9rem;
+  line-height: 1.1;
+}
+.target-label {
+  color: var(--secondary-text-color);
+  font-size: 0.9rem;
 }
 .row {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .seg {
   display: flex;
-  background: var(--navien-soft);
-  border-radius: 14px;
-  padding: 3px;
-  flex: 1;
-  min-width: 170px;
+  gap: 4px;
+  padding: 4px;
 }
+.row .seg { flex: 1 1 220px; }
 .seg button, .chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border: 0;
+  gap: 8px;
   font: inherit;
+  font-size: 1rem;
   font-weight: 650;
   cursor: pointer;
+  border-radius: 12px;
 }
 .seg button {
   flex: 1;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--secondary-text-color);
-  border-radius: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
+.seg button:hover:not(.active) { color: var(--primary-text-color); }
 .seg button.active {
-  background: var(--card-background-color, #fff);
   color: var(--primary-text-color);
-  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+  background: color-mix(in srgb, var(--navien-accent) 16%, transparent);
+  border-color: var(--navien-accent);
 }
-.seg button.active.power-on { color: var(--navien-accent); }
+.seg button.active ha-icon { color: var(--navien-accent); }
+.seg button.active.power-on { color: var(--navien-accent-text); }
 .chip {
-  border-radius: 14px;
-  padding: 8px 12px;
-  background: var(--navien-soft);
+  flex: 0 1 auto;
+  padding: 12px 18px;
   color: var(--primary-text-color);
 }
+.chip:hover { border-color: color-mix(in srgb, var(--navien-accent) 50%, transparent); }
 .chip.active {
-  background: color-mix(in srgb, var(--info-color, #3b82f6) 18%, var(--navien-soft));
   color: var(--info-color, #3b82f6);
-}
-.sliders {
-  display: grid;
-  gap: 12px;
+  background: color-mix(in srgb, var(--info-color, #3b82f6) 14%, transparent);
+  border-color: var(--info-color, #3b82f6);
 }
 .slider-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px 12px;
+  gap: 12px;
   align-items: center;
+  padding: 14px 16px 16px;
 }
 .slider-row label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
+  gap: 8px;
+  font-size: 0.95rem;
   color: var(--secondary-text-color);
   justify-self: start;
-  --mdc-icon-size: 16px;
+  --mdc-icon-size: 22px;
 }
 .slider-row .value {
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 input[type=range] {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: var(--navien-accent);
+  margin: 4px 0 0;
+  height: 8px;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(to right, var(--navien-accent) 0 var(--pct, 0%), var(--navien-track) var(--pct, 0%) 100%);
+  cursor: pointer;
 }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--navien-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--navien-accent) 22%, transparent);
+}
+input[type=range]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--navien-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--navien-accent) 22%, transparent);
+}
+input[type=range]::-moz-range-track { background: transparent; }
 .banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 12px;
-  padding: 8px 10px;
-  font-size: 0.85rem;
-  background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
-  color: var(--error-color, #ef4444);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  background: color-mix(in srgb, var(--navien-bad) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--navien-bad) 40%, transparent);
+  color: var(--navien-bad);
 }
 .warning {
   opacity: .85;
@@ -336,10 +402,6 @@ input[type=range] {
 .tip-start[data-tip]:hover::after { transform: translateY(0); }
 .tip-end[data-tip]::after { left: auto; right: 0; transform: translateY(4px); }
 .tip-end[data-tip]:hover::after { transform: translateY(0); }
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
 @keyframes flicker {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: .8; }
@@ -477,6 +539,11 @@ function pickClimate(ids, hass) {
 
 function icon(name) {
   return `<ha-icon icon="${name}"></ha-icon>`;
+}
+
+function sliderPct(value, min, max) {
+  if (!(max > min)) return 0;
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 }
 
 class NavienNr40dCard extends HTMLElement {
@@ -665,19 +732,17 @@ class NavienNr40dCard extends HTMLElement {
           ${ready && !online ? `<div class="warning">${t(hass, "offline")}</div>` : ""}
           ${ready ? `
             <div class="hero">
-              <div>
+              <div class="tile room tip-start" data-tip="${tip("tip_room")}">
+                <div class="room-label">${icon("mdi:home-outline")}${t(hass, "room")}</div>
                 <div class="temp">${current ?? "–"}<small>°</small></div>
-                <div class="meta tip-start" data-tip="${tip("tip_room")}">
-                  ${icon("mdi:home-thermometer-outline")}${t(hass, "room")}
-                </div>
               </div>
               ${canSetRoom ? `
-              <div class="setpoint">
-                <button class="btn" data-act="temp-down" data-tip="${tip("tip_minus")}"
+              <div class="tile setpoint">
+                <button class="btn tip-start" data-act="temp-down" data-tip="${tip("tip_minus")}"
                   aria-label="${tip("tip_minus")}" ${target <= min ? "disabled" : ""}>${icon("mdi:minus")}</button>
-                <div class="target tip-end" data-tip="${tip("tip_target")}">
+                <div class="target" data-tip="${tip("tip_target")}">
                   <div class="target-value">${target ?? "–"}°</div>
-                  <div class="meta">${t(hass, "target")}</div>
+                  <div class="target-label">${t(hass, "target")}</div>
                 </div>
                 <button class="btn tip-end" data-act="temp-up" data-tip="${tip("tip_plus")}"
                   aria-label="${tip("tip_plus")}" ${target >= max ? "disabled" : ""}>${icon("mdi:plus")}</button>
@@ -687,31 +752,29 @@ class NavienNr40dCard extends HTMLElement {
             ${canPower || away ? `
             <div class="row">
               ${canPower ? `
-              <div class="seg">
+              <div class="tile seg">
                 <button data-act="off" class="tip-start ${heatOn ? "" : "active"}" data-tip="${tip("tip_off")}">
-                  ${icon("mdi:power-off")}${t(hass, "off")}</button>
+                  ${icon("mdi:circle-outline")}${t(hass, "off")}</button>
                 <button data-act="on" class="${heatOn ? "active power-on" : ""}" data-tip="${tip("tip_on")}">
                   ${icon("mdi:power")}${t(hass, "on")}</button>
               </div>
               ` : ""}
               ${away ? `
-                <button class="chip tip-end ${awayOn ? "active" : ""}" data-act="away" data-tip="${tip("tip_away")}">
+                <button class="tile chip tip-end ${awayOn ? "active" : ""}" data-act="away" data-tip="${tip("tip_away")}">
                   ${icon("mdi:home-export-outline")}${t(hass, "away")}</button>
               ` : ""}
             </div>
             ` : ""}
             ${mode ? `
-              <div class="seg">
+              <div class="tile seg">
                 <button data-act="mode-room" class="tip-start ${isRoom(modeValue) ? "active" : ""}" data-tip="${tip("tip_mode_room")}">
                   ${icon("mdi:home-thermometer-outline")}${t(hass, "mode_room")}</button>
                 <button data-act="mode-water" class="tip-end ${isWater(modeValue) ? "active" : ""}" data-tip="${tip("tip_mode_water")}">
                   ${icon("mdi:radiator")}${t(hass, "mode_water")}</button>
               </div>
             ` : ""}
-            <div class="sliders">
-              ${water ? this._slider("water", t(hass, "water"), "mdi:radiator", tip("tip_water"), water) : ""}
-              ${dhw ? this._slider("dhw", t(hass, "dhw"), "mdi:water-boiler", tip("tip_dhw"), dhw) : ""}
-            </div>
+            ${water ? this._slider("water", t(hass, "water"), "mdi:radiator", tip("tip_water"), water) : ""}
+            ${dhw ? this._slider("dhw", t(hass, "dhw"), "mdi:water-boiler", tip("tip_dhw"), dhw) : ""}
             ${errorText ? `<div class="banner">${icon("mdi:alert-circle-outline")}${this._escape(errorText)}</div>` : ""}
           ` : ""}
         </div>
@@ -726,11 +789,11 @@ class NavienNr40dCard extends HTMLElement {
     const max = num(state.attributes.max) ?? 80;
     const step = num(state.attributes.step) ?? 1;
     return `
-      <div class="slider-row">
+      <div class="tile slider-row">
         <label class="tip-start" data-tip="${hint}">${icon(iconName)}${label}</label>
         <div class="value">${value}°</div>
         <input type="range" data-slider="${kind}" min="${min}" max="${max}" step="${step}" value="${value}"
-          aria-label="${this._escape(label)}">
+          style="--pct: ${sliderPct(value, min, max)}%" aria-label="${this._escape(label)}">
       </div>
     `;
   }
@@ -779,8 +842,10 @@ class NavienNr40dCard extends HTMLElement {
       input.addEventListener("pointerup", release);
       input.addEventListener("pointercancel", release);
       input.addEventListener("input", (event) => {
-        const label = event.target.closest(".slider-row")?.querySelector(".value");
-        if (label) label.textContent = `${event.target.value}°`;
+        const el = event.target;
+        const label = el.closest(".slider-row")?.querySelector(".value");
+        if (label) label.textContent = `${el.value}°`;
+        el.style.setProperty("--pct", `${sliderPct(Number(el.value), Number(el.min), Number(el.max))}%`);
       });
       input.addEventListener("change", (event) => {
         const kind = event.target.dataset.slider;
