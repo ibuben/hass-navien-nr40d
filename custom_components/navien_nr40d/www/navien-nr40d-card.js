@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.3.3";
+const CARD_VERSION = "0.3.4";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -6,31 +6,46 @@ const STRINGS = {
     title: "Navien",
     room: "Room",
     target: "Target",
-    heat: "Heat",
+    on: "On",
     off: "Off",
     away: "Away",
-    mode: "Heating mode",
     mode_room: "Room",
     mode_water: "Water",
     water: "Heating water",
-    dhw: "DHW",
+    dhw: "Hot water",
     heating: "Heating",
     idle: "Idle",
     offline: "Controller is offline",
     pick: "Select the Navien NR-40D device",
     missing: "Boiler entities were not found",
-    no_error: "No errors",
-    connected: "Online",
-    disconnected: "Offline",
+    tip_link_on: "Controller is online",
+    tip_link_off: "No link to the controller",
+    tip_flame_on: "Burner is on",
+    tip_flame_off: "Burner is off",
+    tip_outdoor_on: "Outdoor sensor is connected to the boiler",
+    tip_outdoor_off: "No outdoor sensor detected",
+    tip_away_on: "Away mode is on",
+    tip_error_ok: "No errors",
+    tip_error: "Boiler error",
+    tip_room: "Room temperature from the controller sensor",
+    tip_target: "Target: the room temperature you want. The boiler heats while the room is colder",
+    tip_minus: "Lower the target by 1°",
+    tip_plus: "Raise the target by 1°",
+    tip_off: "Turn heating off",
+    tip_on: "Turn heating on",
+    tip_away: "Economy mode while nobody is home",
+    tip_mode_room: "Keep the room air temperature",
+    tip_mode_water: "Keep the radiator water temperature",
+    tip_water: "Radiator water temperature, used in the water mode",
+    tip_dhw: "Tap hot water temperature",
   },
   ru: {
     title: "Navien",
     room: "Комната",
     target: "Уставка",
-    heat: "Нагрев",
+    on: "Вкл",
     off: "Выкл",
     away: "Вне дома",
-    mode: "Режим отопления",
     mode_room: "По комнате",
     mode_water: "По теплоносителю",
     water: "Теплоноситель",
@@ -40,23 +55,42 @@ const STRINGS = {
     offline: "Пульт не на связи",
     pick: "Выберите устройство Navien NR-40D",
     missing: "Сущности котла не найдены",
-    no_error: "Ошибок нет",
-    connected: "На связи",
-    disconnected: "Нет связи",
+    tip_link_on: "Связь с пультом есть",
+    tip_link_off: "Нет связи с пультом",
+    tip_flame_on: "Горелка работает",
+    tip_flame_off: "Горелка не горит",
+    tip_outdoor_on: "Уличный датчик подключён к котлу",
+    tip_outdoor_off: "Уличный датчик не обнаружен",
+    tip_away_on: "Включён режим «Вне дома»",
+    tip_error_ok: "Ошибок нет",
+    tip_error: "Ошибка котла",
+    tip_room: "Температура в комнате по датчику пульта",
+    tip_target: "Уставка — желаемая температура в комнате. Котёл греет, пока в комнате холоднее",
+    tip_minus: "Уменьшить уставку на 1°",
+    tip_plus: "Увеличить уставку на 1°",
+    tip_off: "Выключить отопление",
+    tip_on: "Включить отопление",
+    tip_away: "Экономный режим на время, пока никого нет дома",
+    tip_mode_room: "Котёл держит температуру воздуха в комнате",
+    tip_mode_water: "Котёл держит температуру воды в батареях",
+    tip_water: "Температура воды в батареях, для режима «По теплоносителю»",
+    tip_dhw: "Температура горячей воды из крана",
   },
 };
 
 const STYLE = `
 :host {
   display: block;
+  --navien-accent: #f97316;
+  --navien-soft: var(--secondary-background-color, rgba(127,127,127,.12));
 }
 ha-card {
-  overflow: hidden;
   padding: 0;
   background:
-    radial-gradient(1200px 280px at 10% -20%, color-mix(in srgb, var(--navien-accent, #f97316) 18%, transparent), transparent 55%),
+    radial-gradient(1200px 280px at 10% -20%, color-mix(in srgb, var(--navien-accent) 18%, transparent), transparent 55%),
     var(--ha-card-background, var(--card-background-color, #fff));
 }
+ha-icon { --mdc-icon-size: 18px; display: inline-flex; }
 .wrap {
   padding: 16px 18px 14px;
   display: flex;
@@ -68,6 +102,7 @@ ha-card {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .brand {
   display: flex;
@@ -76,18 +111,18 @@ ha-card {
   min-width: 0;
 }
 .logo {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--navien-accent, #f97316) 16%, var(--secondary-background-color, #eee));
-  color: var(--navien-accent, #f97316);
+  background: color-mix(in srgb, var(--navien-accent) 16%, var(--navien-soft));
+  color: var(--secondary-text-color);
   flex: 0 0 auto;
+  --mdc-icon-size: 22px;
 }
-.logo.heating {
-  animation: pulse 1.6s ease-in-out infinite;
-}
+.logo.on { color: var(--navien-accent); }
+.logo.flame { animation: pulse 1.6s ease-in-out infinite; }
 .title {
   font-weight: 650;
   font-size: 1.05rem;
@@ -100,24 +135,25 @@ ha-card {
   color: var(--secondary-text-color);
   font-size: 0.78rem;
 }
-.pill {
-  display: inline-flex;
-  align-items: center;
+.badges {
+  display: flex;
   gap: 6px;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  margin-left: auto;
 }
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--error-color, #ef4444);
+.badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--navien-soft);
+  color: var(--disabled-text-color, #9ca3af);
 }
-.dot.on { background: var(--success-color, #22c55e); }
-.dot.heat { background: var(--navien-accent, #f97316); }
+.badge.good { color: var(--success-color, #22c55e); }
+.badge.bad { color: var(--error-color, #ef4444); background: color-mix(in srgb, var(--error-color, #ef4444) 14%, transparent); }
+.badge.hot { color: var(--navien-accent); background: color-mix(in srgb, var(--navien-accent) 16%, transparent); }
+.badge.hot ha-icon { animation: flicker 1.4s ease-in-out infinite; }
+.badge.info { color: var(--info-color, #3b82f6); }
 .hero {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -135,10 +171,14 @@ ha-card {
   margin-left: 2px;
   color: var(--secondary-text-color);
 }
-.temp-meta {
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--secondary-text-color);
   font-size: 0.85rem;
   margin-top: 4px;
+  --mdc-icon-size: 15px;
 }
 .setpoint {
   display: flex;
@@ -148,23 +188,24 @@ ha-card {
 .btn {
   appearance: none;
   border: 0;
-  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  background: var(--navien-soft);
   color: var(--primary-text-color);
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
-  font-size: 1.25rem;
   cursor: pointer;
   display: grid;
   place-items: center;
 }
-.btn:hover { filter: brightness(1.08); }
+.btn:hover { filter: brightness(1.12); }
 .btn:disabled { opacity: .4; cursor: default; }
-.target-value {
-  min-width: 3.2rem;
+.target {
+  min-width: 3.4rem;
   text-align: center;
+}
+.target-value {
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
 }
 .row {
   display: flex;
@@ -173,43 +214,48 @@ ha-card {
 }
 .seg {
   display: flex;
-  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  background: var(--navien-soft);
   border-radius: 14px;
   padding: 3px;
   flex: 1;
-  min-width: 160px;
+  min-width: 170px;
+}
+.seg button, .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
 }
 .seg button {
   flex: 1;
-  border: 0;
   background: transparent;
   color: var(--secondary-text-color);
   border-radius: 12px;
   padding: 8px 10px;
-  font-weight: 650;
-  cursor: pointer;
 }
 .seg button.active {
   background: var(--card-background-color, #fff);
   color: var(--primary-text-color);
-  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
 }
+.seg button.active.power-on { color: var(--navien-accent); }
 .chip {
-  border: 0;
   border-radius: 14px;
   padding: 8px 12px;
-  font-weight: 650;
-  cursor: pointer;
-  background: var(--secondary-background-color, rgba(127,127,127,.12));
+  background: var(--navien-soft);
   color: var(--primary-text-color);
 }
 .chip.active {
-  background: color-mix(in srgb, var(--navien-accent, #f97316) 18%, var(--secondary-background-color, #eee));
-  color: var(--navien-accent, #f97316);
+  background: color-mix(in srgb, var(--info-color, #3b82f6) 18%, var(--navien-soft));
+  color: var(--info-color, #3b82f6);
 }
 .sliders {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 .slider-row {
   display: grid;
@@ -218,8 +264,13 @@ ha-card {
   align-items: center;
 }
 .slider-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.82rem;
   color: var(--secondary-text-color);
+  justify-self: start;
+  --mdc-icon-size: 16px;
 }
 .slider-row .value {
   font-weight: 700;
@@ -228,18 +279,17 @@ ha-card {
 input[type=range] {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: var(--navien-accent, #f97316);
+  accent-color: var(--navien-accent);
 }
 .banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border-radius: 12px;
   padding: 8px 10px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   background: color-mix(in srgb, var(--error-color, #ef4444) 12%, transparent);
   color: var(--error-color, #ef4444);
-}
-.ok {
-  color: var(--secondary-text-color);
-  background: var(--secondary-background-color, rgba(127,127,127,.08));
 }
 .warning {
   opacity: .85;
@@ -247,9 +297,52 @@ input[type=range] {
   padding: 18px 8px;
   color: var(--secondary-text-color);
 }
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px);
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--primary-text-color, #111);
+  color: var(--card-background-color, #fff);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease, transform .12s ease;
+  z-index: 10;
+}
+[data-tip]:hover::after, [data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.badge[data-tip]::after {
+  left: auto;
+  right: 0;
+  top: calc(100% + 8px);
+  bottom: auto;
+  transform: translateY(-4px);
+}
+.badge[data-tip]:hover::after { transform: translateY(0); }
+.tip-start[data-tip]::after { left: 0; transform: translateY(4px); }
+.tip-start[data-tip]:hover::after { transform: translateY(0); }
+.tip-end[data-tip]::after { left: auto; right: 0; transform: translateY(4px); }
+.tip-end[data-tip]:hover::after { transform: translateY(0); }
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: .8; }
 }
 `;
 
@@ -382,12 +475,19 @@ function pickClimate(ids, hass) {
   );
 }
 
+function icon(name) {
+  return `<ha-icon icon="${name}"></ha-icon>`;
+}
+
 class NavienNr40dCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     this._hass = null;
     this._config = {};
+    this._ids = null;
+    this._signature = "";
+    this._dragging = false;
   }
 
   static getConfigForm() {
@@ -416,11 +516,15 @@ class NavienNr40dCard extends HTMLElement {
 
   setConfig(config) {
     this._config = config || {};
+    this._ids = null;
+    this._signature = "";
     this._safeRender();
   }
 
   set hass(hass) {
+    const registryChanged = !this._hass || this._hass.entities !== hass.entities;
     this._hass = hass;
+    if (registryChanged) this._ids = null;
     this._safeRender();
   }
 
@@ -437,12 +541,13 @@ class NavienNr40dCard extends HTMLElement {
   }
 
   _entities() {
+    if (this._ids) return this._ids;
     const hass = this._hass;
     const deviceId = normalizeDeviceId(this._config.device)
       || entryDeviceId(hass?.entities?.[this._config.entity]);
     const ids = idsOnDevice(hass, deviceId);
     const configured = this._config.entity && hass?.states?.[this._config.entity] ? this._config.entity : null;
-    return {
+    const result = {
       climate: configured?.startsWith("climate.") ? configured : pickClimate(ids, hass),
       room: this._config.room_entity || pickDomain(ids, hass, "sensor", ["room_temp", "room_temperature", "комнат"]),
       room_target: this._config.room_target_entity || pickDomain(ids, hass, "number", ["room_target", "room_setpoint"]),
@@ -452,9 +557,13 @@ class NavienNr40dCard extends HTMLElement {
       mode_sensor: pickDomain(ids, hass, "sensor", ["mode"]),
       power: this._config.power_entity || pickDomain(ids, hass, "switch", ["power", "отопление"]),
       away: this._config.away_entity || pickDomain(ids, hass, "switch", ["away"]),
-      connected: this._config.connected_entity || pickDomain(ids, hass, "binary_sensor", ["connected", "controller_link", "connectivity"]),
+      connected: this._config.connected_entity || pickDomain(ids, hass, "binary_sensor", ["connected", "controller_link"]),
+      flame: this._config.flame_entity || pickDomain(ids, hass, "binary_sensor", ["flame", "пламя"]),
+      outdoor: this._config.outdoor_sensor_entity || pickDomain(ids, hass, "binary_sensor", ["outdoor_sensor", "уличн"]),
       error: this._config.error_entity || pickDomain(ids, hass, "sensor", ["error", "ошиб"]),
     };
+    if (hass && Object.values(result).some(Boolean)) this._ids = result;
+    return result;
   }
 
   _call(domain, service, entityId, data = {}) {
@@ -467,24 +576,39 @@ class NavienNr40dCard extends HTMLElement {
     const root = this.shadowRoot;
     if (!root) return;
     const ids = this._entities();
-    const climate = hass?.states?.[ids.climate];
-    const room = hass?.states?.[ids.room];
-    const roomTarget = hass?.states?.[ids.room_target];
-    const power = hass?.states?.[ids.power];
-    const connected = hass?.states?.[ids.connected];
-    const water = hass?.states?.[ids.water];
-    const dhw = hass?.states?.[ids.dhw];
-    const mode = hass?.states?.[ids.mode];
-    const modeSensor = hass?.states?.[ids.mode_sensor];
-    const away = hass?.states?.[ids.away];
-    const error = hass?.states?.[ids.error];
+    const signature = JSON.stringify([
+      lang(hass),
+      this._config,
+      Object.values(ids).map((id) => {
+        const state = hass?.states?.[id];
+        return state ? [id, state.state, state.last_updated] : id;
+      }),
+    ]);
+    // Dashboards push every HA state change; redrawing would drop hovers and slider drags.
+    if (signature === this._signature || this._dragging) return;
+    this._signature = signature;
+
+    const st = (key) => hass?.states?.[ids[key]];
+    const climate = st("climate");
+    const room = st("room");
+    const roomTarget = st("room_target");
+    const power = st("power");
+    const connected = st("connected");
+    const flame = st("flame");
+    const outdoor = st("outdoor");
+    const water = st("water");
+    const dhw = st("dhw");
+    const mode = st("mode");
+    const modeSensor = st("mode_sensor");
+    const away = st("away");
+    const error = st("error");
     const deviceId = normalizeDeviceId(this._config.device);
     const deviceName = hass?.devices?.[deviceId]?.name_by_user || hass?.devices?.[deviceId]?.name;
-    const name = this._config.name || climate?.attributes?.friendly_name || deviceName || t(hass, "title");
+    const name = this._config.name || deviceName || climate?.attributes?.friendly_name || t(hass, "title");
     const online = connected
       ? connected.state === "on"
       : Boolean(climate || room || water || dhw);
-    const heating = climate?.attributes?.hvac_action === "heating";
+    const burning = flame ? flame.state === "on" : climate?.attributes?.hvac_action === "heating";
     const current = num(climate?.attributes?.current_temperature) ?? num(room?.state);
     const target = num(climate?.attributes?.temperature) ?? num(roomTarget?.state);
     const min = num(climate?.attributes?.min_temp) ?? num(roomTarget?.attributes?.min) ?? 10;
@@ -503,11 +627,22 @@ class NavienNr40dCard extends HTMLElement {
     const hasDevice = Boolean(deviceId || this._config.entity);
     const canSetRoom = Boolean(ids.climate || ids.room_target);
     const canPower = Boolean(ids.climate || ids.power);
-    const subtitle = heating
-      ? t(hass, "heating")
-      : heatOn
-        ? t(hass, "idle")
-        : t(hass, "off");
+    const subtitle = !heatOn ? t(hass, "off") : burning ? t(hass, "heating") : t(hass, "idle");
+    const tip = (key) => this._escape(t(hass, key));
+
+    const badges = [
+      `<div class="badge ${online ? "good" : "bad"}" data-tip="${tip(online ? "tip_link_on" : "tip_link_off")}">
+        ${icon(online ? "mdi:lan-connect" : "mdi:lan-disconnect")}</div>`,
+      ready ? `<div class="badge ${burning ? "hot" : ""}" data-tip="${tip(burning ? "tip_flame_on" : "tip_flame_off")}">
+        ${icon(burning ? "mdi:fire" : "mdi:fire-off")}</div>` : "",
+      outdoor ? `<div class="badge ${outdoor.state === "on" ? "good" : ""}"
+        data-tip="${tip(outdoor.state === "on" ? "tip_outdoor_on" : "tip_outdoor_off")}">
+        ${icon(outdoor.state === "on" ? "mdi:sun-thermometer-outline" : "mdi:thermometer-off")}</div>` : "",
+      awayOn ? `<div class="badge info" data-tip="${tip("tip_away_on")}">${icon("mdi:home-export-outline")}</div>` : "",
+      error ? `<div class="badge ${errorText ? "bad" : "good"}"
+        data-tip="${errorText ? `${tip("tip_error")}: ${this._escape(errorText)}` : tip("tip_error_ok")}">
+        ${icon(errorText ? "mdi:alert-circle-outline" : "mdi:check-circle-outline")}</div>` : "",
+    ].join("");
 
     root.innerHTML = `
       <style>${STYLE}</style>
@@ -515,20 +650,15 @@ class NavienNr40dCard extends HTMLElement {
         <div class="wrap">
           <div class="header">
             <div class="brand">
-              <div class="logo ${heating ? "heating" : ""}" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 22c4.97 0 8-3.36 8-7.5 0-3.27-2.25-6.18-4.2-8.05C14.17 4.86 13 3.5 13 2c-2.4 2.67-4 5.43-4 8.5 0 1.3.4 2.5 1 3.5-.9-.6-1.5-1.7-1.5-3C6.2 13.4 4 16 4 18.5 4 21.04 6.46 22 12 22z"/>
-                </svg>
+              <div class="logo ${heatOn ? "on" : ""} ${burning ? "flame" : ""}" aria-hidden="true">
+                ${icon(burning ? "mdi:fire" : "mdi:water-boiler")}
               </div>
               <div>
                 <div class="title">${this._escape(name)}</div>
                 <div class="subtitle">${subtitle}</div>
               </div>
             </div>
-            <div class="pill">
-              <span class="dot ${online ? (heating ? "heat" : "on") : ""}"></span>
-              ${online ? t(hass, "connected") : t(hass, "disconnected")}
-            </div>
+            <div class="badges">${badges}</div>
           </div>
           ${!hasDevice && !ready ? `<div class="warning">${t(hass, "pick")}</div>` : ""}
           ${hasDevice && !ready ? `<div class="warning">${t(hass, "missing")}</div>` : ""}
@@ -537,16 +667,20 @@ class NavienNr40dCard extends HTMLElement {
             <div class="hero">
               <div>
                 <div class="temp">${current ?? "–"}<small>°</small></div>
-                <div class="temp-meta">${t(hass, "room")}</div>
+                <div class="meta tip-start" data-tip="${tip("tip_room")}">
+                  ${icon("mdi:home-thermometer-outline")}${t(hass, "room")}
+                </div>
               </div>
               ${canSetRoom ? `
               <div class="setpoint">
-                <button class="btn" data-act="temp-down" ${target <= min ? "disabled" : ""}>−</button>
-                <div>
+                <button class="btn" data-act="temp-down" data-tip="${tip("tip_minus")}"
+                  aria-label="${tip("tip_minus")}" ${target <= min ? "disabled" : ""}>${icon("mdi:minus")}</button>
+                <div class="target tip-end" data-tip="${tip("tip_target")}">
                   <div class="target-value">${target ?? "–"}°</div>
-                  <div class="temp-meta">${t(hass, "target")}</div>
+                  <div class="meta">${t(hass, "target")}</div>
                 </div>
-                <button class="btn" data-act="temp-up" ${target >= max ? "disabled" : ""}>+</button>
+                <button class="btn tip-end" data-act="temp-up" data-tip="${tip("tip_plus")}"
+                  aria-label="${tip("tip_plus")}" ${target >= max ? "disabled" : ""}>${icon("mdi:plus")}</button>
               </div>
               ` : ""}
             </div>
@@ -554,49 +688,56 @@ class NavienNr40dCard extends HTMLElement {
             <div class="row">
               ${canPower ? `
               <div class="seg">
-                <button data-act="off" class="${heatOn ? "" : "active"}">${t(hass, "off")}</button>
-                <button data-act="heat" class="${heatOn ? "active" : ""}">${t(hass, "heat")}</button>
+                <button data-act="off" class="tip-start ${heatOn ? "" : "active"}" data-tip="${tip("tip_off")}">
+                  ${icon("mdi:power-off")}${t(hass, "off")}</button>
+                <button data-act="on" class="${heatOn ? "active power-on" : ""}" data-tip="${tip("tip_on")}">
+                  ${icon("mdi:power")}${t(hass, "on")}</button>
               </div>
               ` : ""}
               ${away ? `
-                <button class="chip ${awayOn ? "active" : ""}" data-act="away">${t(hass, "away")}</button>
+                <button class="chip tip-end ${awayOn ? "active" : ""}" data-act="away" data-tip="${tip("tip_away")}">
+                  ${icon("mdi:home-export-outline")}${t(hass, "away")}</button>
               ` : ""}
             </div>
             ` : ""}
             ${mode ? `
               <div class="seg">
-                <button data-act="mode-room" class="${isRoom(modeValue) ? "active" : ""}">${t(hass, "mode_room")}</button>
-                <button data-act="mode-water" class="${isWater(modeValue) ? "active" : ""}">${t(hass, "mode_water")}</button>
+                <button data-act="mode-room" class="tip-start ${isRoom(modeValue) ? "active" : ""}" data-tip="${tip("tip_mode_room")}">
+                  ${icon("mdi:home-thermometer-outline")}${t(hass, "mode_room")}</button>
+                <button data-act="mode-water" class="tip-end ${isWater(modeValue) ? "active" : ""}" data-tip="${tip("tip_mode_water")}">
+                  ${icon("mdi:radiator")}${t(hass, "mode_water")}</button>
               </div>
             ` : ""}
             <div class="sliders">
-              ${water ? this._slider("water", t(hass, "water"), water) : ""}
-              ${dhw ? this._slider("dhw", t(hass, "dhw"), dhw) : ""}
+              ${water ? this._slider("water", t(hass, "water"), "mdi:radiator", tip("tip_water"), water) : ""}
+              ${dhw ? this._slider("dhw", t(hass, "dhw"), "mdi:water-boiler", tip("tip_dhw"), dhw) : ""}
             </div>
-            <div class="banner ${errorText ? "" : "ok"}">${errorText ? this._escape(error.state) : t(hass, "no_error")}</div>
+            ${errorText ? `<div class="banner">${icon("mdi:alert-circle-outline")}${this._escape(errorText)}</div>` : ""}
           ` : ""}
         </div>
       </ha-card>
     `;
-    this._bind({ min, max, target, awayOn, heatOn, ids });
+    this._bind({ target, awayOn, ids });
   }
 
-  _slider(kind, label, state) {
+  _slider(kind, label, iconName, hint, state) {
     const value = num(state.state) ?? 0;
     const min = num(state.attributes.min) ?? 30;
     const max = num(state.attributes.max) ?? 80;
     const step = num(state.attributes.step) ?? 1;
     return `
       <div class="slider-row">
-        <label>${label}</label>
+        <label class="tip-start" data-tip="${hint}">${icon(iconName)}${label}</label>
         <div class="value">${value}°</div>
-        <input type="range" data-slider="${kind}" min="${min}" max="${max}" step="${step}" value="${value}">
+        <input type="range" data-slider="${kind}" min="${min}" max="${max}" step="${step}" value="${value}"
+          aria-label="${this._escape(label)}">
       </div>
     `;
   }
 
   _bind(ctx) {
     const root = this.shadowRoot;
+    const click = (act, handler) => root.querySelector(`[data-act="${act}"]`)?.addEventListener("click", handler);
     const setRoom = (value) => {
       if (ctx.ids.climate) {
         this._call("climate", "set_temperature", ctx.ids.climate, { temperature: value });
@@ -604,46 +745,39 @@ class NavienNr40dCard extends HTMLElement {
         this._call("number", "set_value", ctx.ids.room_target, { value });
       }
     };
-    root.querySelector('[data-act="temp-down"]')?.addEventListener("click", () => {
-      if (ctx.target == null) return;
-      setRoom(ctx.target - 1);
-    });
-    root.querySelector('[data-act="temp-up"]')?.addEventListener("click", () => {
-      if (ctx.target == null) return;
-      setRoom(ctx.target + 1);
-    });
-    root.querySelector('[data-act="off"]')?.addEventListener("click", () => {
+    const setPower = (on) => {
       if (ctx.ids.climate) {
-        this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "off" });
+        this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: on ? "heat" : "off" });
       } else {
-        this._call("switch", "turn_off", ctx.ids.power);
+        this._call("switch", on ? "turn_on" : "turn_off", ctx.ids.power);
       }
-    });
-    root.querySelector('[data-act="heat"]')?.addEventListener("click", () => {
-      if (ctx.ids.climate) {
-        this._call("climate", "set_hvac_mode", ctx.ids.climate, { hvac_mode: "heat" });
-      } else {
-        this._call("switch", "turn_on", ctx.ids.power);
-      }
-    });
-    root.querySelector('[data-act="away"]')?.addEventListener("click", () => {
+    };
+    click("temp-down", () => ctx.target != null && setRoom(ctx.target - 1));
+    click("temp-up", () => ctx.target != null && setRoom(ctx.target + 1));
+    click("off", () => setPower(false));
+    click("on", () => setPower(true));
+    click("away", () => {
       if (ctx.ids.away) {
         this._call("switch", ctx.awayOn ? "turn_off" : "turn_on", ctx.ids.away);
       } else {
         this._call("climate", "set_preset_mode", ctx.ids.climate, { preset_mode: ctx.awayOn ? "none" : "away" });
       }
     });
-    root.querySelector('[data-act="mode-room"]')?.addEventListener("click", () => {
-      this._call("select", "select_option", ctx.ids.mode, {
-        option: optionFor(this._hass?.states?.[ctx.ids.mode], ROOM_OPTIONS),
-      });
-    });
-    root.querySelector('[data-act="mode-water"]')?.addEventListener("click", () => {
-      this._call("select", "select_option", ctx.ids.mode, {
-        option: optionFor(this._hass?.states?.[ctx.ids.mode], WATER_OPTIONS),
-      });
-    });
+    click("mode-room", () => this._call("select", "select_option", ctx.ids.mode, {
+      option: optionFor(this._hass?.states?.[ctx.ids.mode], ROOM_OPTIONS),
+    }));
+    click("mode-water", () => this._call("select", "select_option", ctx.ids.mode, {
+      option: optionFor(this._hass?.states?.[ctx.ids.mode], WATER_OPTIONS),
+    }));
+    const release = () => {
+      if (!this._dragging) return;
+      this._dragging = false;
+      setTimeout(() => this._safeRender(), 0);
+    };
     root.querySelectorAll("input[type=range]").forEach((input) => {
+      input.addEventListener("pointerdown", () => { this._dragging = true; });
+      input.addEventListener("pointerup", release);
+      input.addEventListener("pointercancel", release);
       input.addEventListener("input", (event) => {
         const label = event.target.closest(".slider-row")?.querySelector(".value");
         if (label) label.textContent = `${event.target.value}°`;
@@ -652,6 +786,7 @@ class NavienNr40dCard extends HTMLElement {
         const kind = event.target.dataset.slider;
         const entityId = kind === "water" ? ctx.ids.water : ctx.ids.dhw;
         this._call("number", "set_value", entityId, { value: Number(event.target.value) });
+        release();
       });
     });
   }
