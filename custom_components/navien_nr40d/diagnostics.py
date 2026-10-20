@@ -25,7 +25,6 @@ async def async_get_config_entry_diagnostics(
         "listen_host": coordinator._host,
         "listen_ports": coordinator._ports,
         "poll_interval": coordinator._poll_interval,
-        "outdoor_block": data.outdoor_block,
         "device": None
         if device is None
         else {

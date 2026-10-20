@@ -73,9 +73,6 @@
       "room_temp": {
         "name": "Room temperature"
       },
-      "outdoor_temp": {
-        "name": "Outdoor temperature"
-      },
       "mode": {
         "name": "Mode",
         "state": {
@@ -125,6 +122,9 @@
     "binary_sensor": {
       "connected": {
         "name": "Controller link"
+      },
+      "outdoor_sensor": {
+        "name": "Outdoor sensor"
       }
     }
   }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "navien_nr40d"
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 DEFAULT_NAME = "Navien NR-40D"
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORTS = "7000,21001,21002,21003"
@@ -23,8 +23,6 @@ CMD_STATUS_REPLY = 0x07
 CMD_DEVICE_INFO = 0xCD
 CMD_CONTROL = 0xCE
 CMD_QUERY = 0xCF
-QUERY_OUTDOOR = 0x0F
-
 ACK_PAYLOADS = {
     CMD_REGISTER: bytes(8),
     CMD_DEVICE_INFO_REPLY: bytes(8),

@@ -73,9 +73,6 @@
       "room_temp": {
         "name": "Температура в комнате"
       },
-      "outdoor_temp": {
-        "name": "Уличная температура"
-      },
       "mode": {
         "name": "Режим",
         "state": {
@@ -125,6 +122,9 @@
     "binary_sensor": {
       "connected": {
         "name": "Связь с пультом"
+      },
+      "outdoor_sensor": {
+        "name": "Уличный датчик"
       }
     }
   }
