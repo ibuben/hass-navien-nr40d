@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.4";
+const CARD_VERSION = "0.2.5";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {

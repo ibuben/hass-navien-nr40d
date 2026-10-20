@@ -2,11 +2,13 @@
   "domain": "navien_nr40d",
   "name": "Navien NR-40D",
   "codeowners": ["@ibuben"],
+  "after_dependencies": ["lovelace"],
   "config_flow": true,
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/ibuben/hass-navien-nr40d",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/ibuben/hass-navien-nr40d/issues",
   "requirements": [],
-  "version": "0.2.4"
+  "version": "0.2.5"
 }
