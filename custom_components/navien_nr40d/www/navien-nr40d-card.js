@@ -1,4 +1,4 @@
-const CARD_VERSION = "0.2.7";
+const CARD_VERSION = "0.2.8";
 const CARD_TYPE = "navien-nr40d-card";
 
 const STRINGS = {
@@ -18,6 +18,7 @@ const STRINGS = {
     idle: "Idle",
     offline: "Controller is offline",
     pick: "Select the Navien NR-40D device",
+    missing: "Boiler entities were not found",
     no_error: "No errors",
     connected: "Online",
     disconnected: "Offline",
@@ -38,6 +39,7 @@ const STRINGS = {
     idle: "Ожидание",
     offline: "Пульт не на связи",
     pick: "Выберите устройство Navien NR-40D",
+    missing: "Сущности котла не найдены",
     no_error: "Ошибок нет",
     connected: "На связи",
     disconnected: "Нет связи",
@@ -282,58 +284,101 @@ function optionFor(state, wanted) {
   return wanted.find((item) => options.includes(item)) || wanted[0];
 }
 
-function climateFromDevice(hass, deviceId) {
-  if (!hass || !deviceId) return null;
-  return Object.keys(hass.entities || {}).find(
-    (id) => id.startsWith("climate.") && hass.entities[id].device_id === deviceId
-  ) || null;
+function normalizeDeviceId(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) return normalizeDeviceId(value[0]);
+  if (typeof value === "object") {
+    return normalizeDeviceId(value.id || value.device_id || value.device || value.value);
+  }
+  return "";
 }
 
-function anyEntityOnDevice(hass, deviceId) {
-  if (!hass || !deviceId) return null;
-  return Object.keys(hass.entities || {}).find((id) => hass.entities[id].device_id === deviceId) || null;
+function registryList(hass) {
+  const raw = hass?.entities;
+  if (!raw) return [];
+  return (Array.isArray(raw) ? raw : Object.values(raw)).filter(Boolean);
 }
 
-function findNavienEntity(hass) {
-  const ids = Object.keys(hass?.entities || {});
+function entryEntityId(entry, fallback) {
+  return entry?.entity_id || entry?.entityId || fallback || "";
+}
+
+function entryDeviceId(entry) {
+  return entry?.device_id || entry?.deviceId || "";
+}
+
+function isNavienId(hass, entityId) {
+  if (!entityId) return false;
+  const entry = hass?.entities?.[entityId];
+  return entry?.platform === "navien_nr40d" || String(entityId).includes("navien");
+}
+
+function matchHint(entityId, entry, hints) {
+  const uniqueId = String(entry?.unique_id || "").toLowerCase();
+  const key = String(entry?.translation_key || "").toLowerCase();
+  const name = String(entry?.name || entry?.original_name || "").toLowerCase();
+  const id = String(entityId || "").toLowerCase();
+  return hints.some((hint) => {
+    const needle = String(hint).toLowerCase();
+    return id.includes(needle) || uniqueId.includes(needle) || key === needle || name.includes(needle);
+  });
+}
+
+function idsOnDevice(hass, deviceId) {
+  const id = normalizeDeviceId(deviceId);
+  const found = [];
+  const seen = new Set();
+  const add = (entityId) => {
+    if (!entityId || seen.has(entityId)) return;
+    seen.add(entityId);
+    found.push(entityId);
+  };
+
+  if (id) {
+    for (const entry of registryList(hass)) {
+      if (entryDeviceId(entry) === id) add(entryEntityId(entry));
+    }
+    const configEntries = hass?.devices?.[id]?.config_entries || [];
+    for (const entry of registryList(hass)) {
+      if (configEntries.includes(entry.config_entry_id)) add(entryEntityId(entry));
+    }
+  }
+
+  for (const entityId of Object.keys(hass?.states || {})) {
+    const entry = hass?.entities?.[entityId];
+    if (id && entryDeviceId(entry) === id) add(entityId);
+    else if (isNavienId(hass, entityId)) add(entityId);
+  }
+  return found;
+}
+
+function pickDomain(ids, hass, domain, hints) {
+  let candidates = (ids || []).filter((entityId) => entityId.startsWith(`${domain}.`));
+  if (!candidates.length) {
+    candidates = Object.keys(hass?.states || {}).filter(
+      (entityId) => entityId.startsWith(`${domain}.`) && isNavienId(hass, entityId)
+    );
+  }
+  const native = candidates.filter((entityId) => hass?.entities?.[entityId]?.platform === "navien_nr40d");
+  if (native.length) candidates = native;
+  for (const hint of hints || []) {
+    const hit = candidates.find((entityId) => matchHint(entityId, hass?.entities?.[entityId], [hint]));
+    if (hit) return hit;
+  }
+  return candidates[0] || null;
+}
+
+function pickClimate(ids, hass) {
   return (
-    ids.find((id) => id.startsWith("climate.") && hass.entities[id].platform === "navien_nr40d") ||
-    ids.find((id) => hass.entities[id].platform === "navien_nr40d") ||
-    ids.find((id) => id.includes("navien")) ||
+    pickDomain(ids, hass, "climate", ["boiler", "kotel", "climate", "navien"]) ||
+    Object.keys(hass?.states || {}).find((entityId) => {
+      if (!entityId.startsWith("climate.")) return false;
+      const name = String(hass.states[entityId].attributes?.friendly_name || "").toLowerCase();
+      return entityId.includes("navien") || name.includes("navien") || name.includes("котёл") || name.includes("котел");
+    }) ||
     null
   );
-}
-
-function resolveClimate(hass, entityId) {
-  if (!entityId) return null;
-  if (entityId.startsWith("climate.")) return entityId;
-  return climateFromDevice(hass, hass.entities?.[entityId]?.device_id);
-}
-
-function related(hass, climateId, domain, hints) {
-  if (!hass || !climateId) return null;
-  const deviceId = hass.entities?.[climateId]?.device_id;
-  const candidates = Object.keys(hass.states).filter((id) => id.startsWith(`${domain}.`));
-  if (deviceId) {
-    const sameDevice = candidates.filter((id) => hass.entities?.[id]?.device_id === deviceId);
-    for (const hint of hints) {
-      const hit = sameDevice.find((id) => {
-        const uniqueId = hass.entities?.[id]?.unique_id || "";
-        const key = hass.entities?.[id]?.translation_key || "";
-        return id.includes(hint) || uniqueId.includes(hint) || key === hint;
-      });
-      if (hit) return hit;
-    }
-    if (sameDevice.length === 1) return sameDevice[0];
-  }
-  const base = climateId.replace(/^climate\./, "").replace(/_2$/, "");
-  for (const hint of hints) {
-    const guess = `${domain}.${base}_${hint}`;
-    if (hass.states[guess]) return guess;
-    const mqttGuess = `${domain}.navien_nr40d_${hint}`;
-    if (hass.states[mqttGuess]) return mqttGuess;
-  }
-  return null;
 }
 
 class NavienNr40dCard extends HTMLElement {
@@ -358,8 +403,11 @@ class NavienNr40dCard extends HTMLElement {
 
   static getStubConfig(hass) {
     try {
-      const entity = findNavienEntity(hass);
-      return { device: hass.entities?.[entity]?.device_id || "" };
+      const ids = idsOnDevice(hass, "");
+      const climate = pickClimate(ids, hass);
+      const any = climate || ids[0];
+      const fromRegistry = registryList(hass).find((entry) => entryEntityId(entry) === any);
+      return { device: entryDeviceId(hass?.entities?.[any]) || entryDeviceId(fromRegistry) || "" };
     } catch (error) {
       return { device: "" };
     }
@@ -389,18 +437,19 @@ class NavienNr40dCard extends HTMLElement {
 
   _entities() {
     const hass = this._hass;
-    const deviceId = this._config.device || hass?.entities?.[this._config.entity]?.device_id;
-    const seed = climateFromDevice(hass, deviceId) || resolveClimate(hass, this._config.entity)
-      || anyEntityOnDevice(hass, deviceId) || this._config.entity;
-    const climateId = climateFromDevice(hass, deviceId) || resolveClimate(hass, this._config.entity);
+    const deviceId = normalizeDeviceId(this._config.device)
+      || entryDeviceId(hass?.entities?.[this._config.entity]);
+    const ids = idsOnDevice(hass, deviceId);
+    const configured = this._config.entity && hass?.states?.[this._config.entity] ? this._config.entity : null;
     return {
-      climate: climateId,
-      water: this._config.water_entity || related(hass, seed, "number", ["water_temp", "water"]),
-      dhw: this._config.dhw_entity || related(hass, seed, "number", ["dhw_temp", "dhw"]),
-      mode: this._config.mode_entity || related(hass, seed, "select", ["heating_mode", "mode"]),
-      away: this._config.away_entity || related(hass, seed, "switch", ["away"]),
-      connected: this._config.connected_entity || related(hass, seed, "binary_sensor", ["connected"]),
-      error: this._config.error_entity || related(hass, seed, "sensor", ["error"]),
+      climate: configured?.startsWith("climate.") ? configured : pickClimate(ids, hass),
+      room: this._config.room_entity || pickDomain(ids, hass, "sensor", ["room_temp", "room_temperature", "комнат"]),
+      water: this._config.water_entity || pickDomain(ids, hass, "number", ["water_temp", "heating_water", "water", "теплоносител", "teplonos"]),
+      dhw: this._config.dhw_entity || pickDomain(ids, hass, "number", ["dhw_temp", "dhw", "гвс", "gvs"]),
+      mode: this._config.mode_entity || pickDomain(ids, hass, "select", ["heating_mode", "mode"]),
+      away: this._config.away_entity || pickDomain(ids, hass, "switch", ["away"]),
+      connected: this._config.connected_entity || pickDomain(ids, hass, "binary_sensor", ["connected", "controller_link", "connectivity"]),
+      error: this._config.error_entity || pickDomain(ids, hass, "sensor", ["error", "ошиб"]),
     };
   }
 
@@ -415,16 +464,21 @@ class NavienNr40dCard extends HTMLElement {
     if (!root) return;
     const ids = this._entities();
     const climate = hass?.states?.[ids.climate];
+    const room = hass?.states?.[ids.room];
     const connected = hass?.states?.[ids.connected];
     const water = hass?.states?.[ids.water];
     const dhw = hass?.states?.[ids.dhw];
     const mode = hass?.states?.[ids.mode];
     const away = hass?.states?.[ids.away];
     const error = hass?.states?.[ids.error];
-    const name = this._config.name || climate?.attributes?.friendly_name || t(hass, "title");
-    const online = connected ? connected.state === "on" : climate?.state && climate.state !== "unavailable";
+    const deviceId = normalizeDeviceId(this._config.device);
+    const deviceName = hass?.devices?.[deviceId]?.name_by_user || hass?.devices?.[deviceId]?.name;
+    const name = this._config.name || climate?.attributes?.friendly_name || deviceName || t(hass, "title");
+    const online = connected
+      ? connected.state === "on"
+      : Boolean((climate || room || water || dhw) && climate?.state !== "unavailable");
     const heating = climate?.attributes?.hvac_action === "heating";
-    const current = num(climate?.attributes?.current_temperature);
+    const current = num(climate?.attributes?.current_temperature) ?? num(room?.state);
     const target = num(climate?.attributes?.temperature);
     const min = num(climate?.attributes?.min_temp) ?? 10;
     const max = num(climate?.attributes?.max_temp) ?? 40;
@@ -433,6 +487,13 @@ class NavienNr40dCard extends HTMLElement {
       error && error.state && !OK_ERRORS.includes(String(error.state).trim().toLowerCase())
         ? error.state
         : null;
+    const ready = Boolean(climate || room || water || dhw || mode || away);
+    const hasDevice = Boolean(deviceId || this._config.entity);
+    const subtitle = heating
+      ? t(hass, "heating")
+      : climate?.state === "heat"
+        ? t(hass, "idle")
+        : t(hass, "off");
 
     root.innerHTML = `
       <style>${STYLE}</style>
@@ -447,7 +508,7 @@ class NavienNr40dCard extends HTMLElement {
               </div>
               <div>
                 <div class="title">${this._escape(name)}</div>
-                <div class="subtitle">${heating ? t(hass, "heating") : climate?.state === "heat" ? t(hass, "idle") : t(hass, "off")}</div>
+                <div class="subtitle">${subtitle}</div>
               </div>
             </div>
             <div class="pill">
@@ -455,14 +516,16 @@ class NavienNr40dCard extends HTMLElement {
               ${online ? t(hass, "connected") : t(hass, "disconnected")}
             </div>
           </div>
-          ${!ids.climate ? `<div class="warning">${t(hass, "pick")}</div>` : ""}
-          ${ids.climate && !online ? `<div class="warning">${t(hass, "offline")}</div>` : ""}
-          ${climate && online ? `
+          ${!hasDevice && !ready ? `<div class="warning">${t(hass, "pick")}</div>` : ""}
+          ${hasDevice && !ready ? `<div class="warning">${t(hass, "missing")}</div>` : ""}
+          ${ready && !online ? `<div class="warning">${t(hass, "offline")}</div>` : ""}
+          ${ready ? `
             <div class="hero">
               <div>
                 <div class="temp">${current ?? "–"}<small>°</small></div>
                 <div class="temp-meta">${t(hass, "room")}</div>
               </div>
+              ${climate ? `
               <div class="setpoint">
                 <button class="btn" data-act="temp-down" ${target <= min ? "disabled" : ""}>−</button>
                 <div>
@@ -471,7 +534,9 @@ class NavienNr40dCard extends HTMLElement {
                 </div>
                 <button class="btn" data-act="temp-up" ${target >= max ? "disabled" : ""}>+</button>
               </div>
+              ` : ""}
             </div>
+            ${climate ? `
             <div class="row">
               <div class="seg">
                 <button data-act="off" class="${climate.state === "off" ? "active" : ""}">${t(hass, "off")}</button>
@@ -481,6 +546,7 @@ class NavienNr40dCard extends HTMLElement {
                 <button class="chip ${awayOn ? "active" : ""}" data-act="away">${t(hass, "away")}</button>
               ` : ""}
             </div>
+            ` : ""}
             ${mode ? `
               <div class="seg">
                 <button data-act="mode-room" class="${isRoom(mode.state) ? "active" : ""}">${t(hass, "mode_room")}</button>
@@ -491,7 +557,7 @@ class NavienNr40dCard extends HTMLElement {
               ${water ? this._slider("water", t(hass, "water"), water) : ""}
               ${dhw ? this._slider("dhw", t(hass, "dhw"), dhw) : ""}
             </div>
-            <div class="banner ${errorText ? "" : "ok"}">${errorText ? this._escape(error.attributes?.friendly_name ? `${error.state}` : error.state) : t(hass, "no_error")}</div>
+            <div class="banner ${errorText ? "" : "ok"}">${errorText ? this._escape(error.state) : t(hass, "no_error")}</div>
           ` : ""}
         </div>
       </ha-card>
